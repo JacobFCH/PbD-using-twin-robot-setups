@@ -9,17 +9,8 @@
 # IMPORTANT: for each successful call to simxStart, there
 # should be a corresponding call to simxFinish at the end!
 
-try:
-    import sim
-except:
-    print ('--------------------------------------------------------------')
-    print ('"sim.py" could not be imported. This means very probably that')
-    print ('either "sim.py" or the remoteApi library could not be found.')
-    print ('Make sure both are in the same folder as this file,')
-    print ('or appropriately adjust the file "sim.py"')
-    print ('--------------------------------------------------------------')
-    print ('')
-
+import coppeliaSim.sim as sim # Import for simulation environment
+import pythonScripts.admittance_controller_test as controller
 import time
 
 print ('Program started')
@@ -39,13 +30,13 @@ if clientID!=-1:
     time.sleep(2)
 
     # Now retrieve streaming data (i.e. in a non-blocking fashion):
-    startTime=time.time()
-    sim.simxGetIntegerParameter(clientID,sim.sim_intparam_mouse_x,sim.simx_opmode_streaming) # Initialize streaming
-    while time.time()-startTime < 5:
-        returnCode,data=sim.simxGetIntegerParameter(clientID,sim.sim_intparam_mouse_x,sim.simx_opmode_buffer) # Try to retrieve the streamed data
-        if returnCode==sim.simx_return_ok: # After initialization of streaming, it will take a few ms before the first value arrives, so check the return code
-            print ('Mouse position x: ',data) # Mouse position x is actualized when the cursor is over CoppeliaSim's window
-        time.sleep(0.005)
+    #startTime=time.time()
+    #sim.simxGetIntegerParameter(clientID,sim.sim_intparam_mouse_x,sim.simx_opmode_streaming) # Initialize streaming
+    #while time.time()-startTime < 5:
+    #    returnCode,data=sim.simxGetIntegerParameter(clientID,sim.sim_intparam_mouse_x,sim.simx_opmode_buffer) # Try to retrieve the streamed data
+    #    if returnCode==sim.simx_return_ok: # After initialization of streaming, it will take a few ms before the first value arrives, so check the return code
+    #       print ('Mouse position x: ',data) # Mouse position x is actualized when the cursor is over CoppeliaSim's window
+    #    time.sleep(0.005)
 
     # Now send some data to CoppeliaSim in a non-blocking fashion:
     sim.simxAddStatusbarMessage(clientID,'Hello CoppeliaSim!',sim.simx_opmode_oneshot)
