@@ -37,12 +37,16 @@ def comp_kEpsilon(q, K_o):
 def q_integration(omega, qt, dt):
 
     omega = omega * dt/2
+
     if qt.norm > 0:
         norm_omega = np.linalg.norm(omega)
-        epsilon =   (omega/norm_omega)*math.sin(norm_omega)
-        eta = math.cos(norm_omega)
-        exp = Quaternion(np.array([eta, epsilon[0], epsilon[1], epsilon[2]]))
-        q = exp*qt
+        if norm_omega > 0:
+            epsilon = (omega/norm_omega)*math.sin(norm_omega)
+            eta = math.cos(norm_omega)
+            exp = Quaternion(np.array([eta, epsilon[0], epsilon[1], epsilon[2]]))
+            q = exp*qt
+        else:
+            q = qt
     else:
         q = qt   
 
@@ -76,9 +80,9 @@ def compute_pc(d_p, h_e, uD_p, uK_p, pdd_cd, pd_cd, p_cd, M_p, D_p, K_p, dt):
 
     return pdd_cd, pd_cd, p_cd, uD_p, uK_p, p_c
 
-def compute_oc(o_d, mu, M_o, D_o, K_o, qt, omega, omega_d, uDo, kEpsilon, dt):
+def compute_oc(o_d, mu, M_o, D_o, K_o, qt, omega, uDo, kEpsilon, dt):
     sum = mu - uDo - kEpsilon
-    omega_d = np.matmul(sum,np.linalg.pinv(M_o))
+    omega_d = np.matmul(sum,np.linalg.inv(M_o))
 
     omega = omega + (omega_d * dt)
 
@@ -90,14 +94,14 @@ def compute_oc(o_d, mu, M_o, D_o, K_o, qt, omega, omega_d, uDo, kEpsilon, dt):
 
     o_c = quat2rotvec(o_d, q_epsilon)
 
-    return qt, omega, omega_d, uDo, kEpsilon, o_c
+    return qt, omega, uDo, kEpsilon, o_c
 
 def testController():
     # Initial Estimates
     d_p = np.array([1,1,1])
-    o_d = np.array([1,1,1])
+    o_d = np.array([0,0,0])
     h_e = np.array([0,0,0]) 
-    mu = np.array([0.01,0.01,0.01])  
+    mu = np.array([0,0,0])  
 
     uD_p = np.array([0,0,0])
     uK_p = np.array([0,0,0])
@@ -110,17 +114,16 @@ def testController():
     p_cd = np.array([0,0,0])
 
     omega = np.array([0,0,0])
-    omega_d = np.array([0,0,0])
 
     M_p = np.array([[1,0,0],[0,1,0],[0,0,1]])
-    D_p = np.array([[10,0,0],[0,10,0],[0,0,10]])
-    K_p = np.array([[0,0,0],[0,0,0],[0,0,0]])
+    D_p = np.array([[1,0,0],[0,1,0],[0,0,1]])
+    K_p = np.array([[1,0,0],[0,1,0],[0,0,1]])
 
     M_o = np.array([[1,0,0],[0,1,0],[0,0,1]])
     D_o = np.array([[1,0,0],[0,1,0],[0,0,1]])
     K_o = np.array([[1,0,0],[0,1,0],[0,0,1]])
 
-    rotvec = [1,1,1]
+    rotvec = o_d
     rot = R.from_rotvec(rotvec)
     qt = Quaternion(matrix=R.as_matrix(rot))
 
@@ -136,7 +139,7 @@ def testController():
     while timestep < 10:
         # Computing compliant position using a integrating from 0 to 1, not sure if this is correct
         pdd_cd, pd_cd, p_cd, uD_p, uK_p, p_c = compute_pc(d_p, h_e, uD_p, uK_p, pdd_cd, pd_cd, p_cd, M_p, D_p, K_p, dt)
-        qt, omega, omega_d, uDo, kEpsilon, o_c = compute_oc(o_d, mu, M_o, D_o, K_o, qt, omega, omega_d, uDo, kEpsilon, dt)
+        qt, omega, uDo, kEpsilon, o_c = compute_oc(o_d, mu, M_o, D_o, K_o, qt, omega, uDo, kEpsilon, dt)
         time.sleep(dt)
 
         # Adding an external force a 1 second
