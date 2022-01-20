@@ -1,3 +1,4 @@
+import re
 from scipy.spatial.transform.rotation import Rotation as R
 import numpy as np
 import time
@@ -20,6 +21,12 @@ def plot(position, forces):
     ax[1,1].set_title('External Force - Y axis')
     ax[1,2].plot(x,forces[:,2])
     ax[1,2].set_title('External Force - Z axis')
+    plt.show()
+
+def plot3D(position):
+    fig = plt.figure()
+    ax = plt.axes(projection='3d')
+    ax.plot(position[:,0],position[:,1],position[:,2])
     plt.show()
 
 def comp_kEpsilon(q, K_o):
@@ -80,6 +87,16 @@ def compute_pc(d_p, h_e, uD_p, uK_p, pdd_cd, pd_cd, p_cd, M_p, D_p, K_p, dt):
 
     return pdd_cd, pd_cd, p_cd, uD_p, uK_p, p_c
 
+def generate_path(resolution ,r, x0, y0, z0):
+    path = []
+    theta = 0
+    while theta <= 360:
+        x = x0 + r * math.cos(theta * math.pi/180)
+        y = y0 + r * math.sin(theta * math.pi/180)
+        theta += 360/resolution
+        path.append([x,y,z0])
+    return path
+
 def compute_oc(o_d, mu, M_o, D_o, K_o, qt, omega, uDo, kEpsilon, dt):
     sum = mu - uDo - kEpsilon
     omega_d = np.matmul(sum,np.linalg.inv(M_o))
@@ -134,22 +151,26 @@ def testController():
     o_cs = []
     forces = []
     torques = []
-
+    path = generate_path(360, 2, 1 , 1 ,1)
+    path_iterator = 0
     # Main loop for testing runs for 5 seconds
-    while timestep < 10:
+    print("Starting Test Loop")
+    while timestep < 20:
+        d_p = path[path_iterator]
+        path_iterator = (path_iterator + 1) % len(path)
         # Computing compliant position using a integrating from 0 to 1, not sure if this is correct
         pdd_cd, pd_cd, p_cd, uD_p, uK_p, p_c = compute_pc(d_p, h_e, uD_p, uK_p, pdd_cd, pd_cd, p_cd, M_p, D_p, K_p, dt)
         qt, omega, uDo, kEpsilon, o_c = compute_oc(o_d, mu, M_o, D_o, K_o, qt, omega, uDo, kEpsilon, dt)
         time.sleep(dt)
 
         # Adding an external force a 1 second
-        if timestep > 1 and timestep < 1 + dt:
+        if timestep > 5 and timestep < 5 + dt:
             print("adding external force")
-            h_e = np.array([1,0,0])
-            mu = np.array([1,0,0])
+            h_e = np.array([-1,0,0])
+            mu = np.array([0,0,0])
 
         # Removing the external force at 4 seconds
-        if timestep > 4 and timestep < 4 + dt:
+        if timestep > 8 and timestep < 8 + dt:
             print("no external force")
             h_e = np.array([0,0,0])
             mu = np.array([0,0,0])
@@ -160,13 +181,15 @@ def testController():
         forces.append(h_e)
         torques.append(mu)
 
+    print("Plotting Results")
     # Plotting The compliant postion and the external forces
     p_cs = np.asarray(p_cs)
     o_cs = np.asarray(o_cs)
     forces = np.asarray(forces)
     torques = np.asarray(torques)
 
-    plot(p_cs,forces)
-    plot(o_cs,torques)
+    #plot(p_cs,forces)
+    #plot(o_cs,torques)
+    plot3D(p_cs)
 
 testController()
