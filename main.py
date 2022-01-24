@@ -10,7 +10,7 @@
 # should be a corresponding call to simxFinish at the end!
 
 import coppeliaSim.sim as sim # Import for simulation environment
-import pythonScripts.admittance_controller_test as controller
+#import pythonScripts.admittance_controller_test as controller
 import time
 
 print ('Program started')
