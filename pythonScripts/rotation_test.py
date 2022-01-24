@@ -3,18 +3,18 @@ from scipy.spatial.transform.rotation import Rotation as R
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-from pyquaternion import Quaternion
+import quaternion
 import math
 
 def plot(position, forces):
     x = range(len(position))
     fig, ax = plt.subplots(2, 3)
     ax[0,0].plot(x,position[:,0])
-    ax[0,0].set_title('Compiant Rotation - X axis')
+    ax[0,0].set_title('Compliant Rotation - X axis')
     ax[0,1].plot(x,position[:,1])
-    ax[0,1].set_title('Compiant Rotation - Y axis')
+    ax[0,1].set_title('Compliant Rotation - Y axis')
     ax[0,2].plot(x,position[:,2])
-    ax[0,2].set_title('Compiant Rotation - Z axis')
+    ax[0,2].set_title('Compliant Rotation - Z axis')
     ax[1,0].plot(x,forces[:,0])
     ax[1,0].set_title('External Torque - X axis')
     ax[1,1].plot(x,forces[:,1])
@@ -26,13 +26,13 @@ def plot(position, forces):
 # Method to compute the K gain on the quaternion
 def comp_kEpsilon(q, K_o):
 
-    s = np.array([[0, -q[3], q[2]], [q[3], 0, -q[1]],[ -q[2], q[1], 0]])
+    s = np.array([[0, -q.z, q.y], [q.z, 0, -q.x],[ -q.y, q.x, 0]])
 
-    e = q[0] * np.eye(3) - s
+    e = q.w * np.eye(3) - s
 
     kPrime = 2 * np.transpose(e)* K_o
 
-    kPrime_oXEpsilon = np.matmul(kPrime, np.array([q[1],q[2],q[3]]))
+    kPrime_oXEpsilon = np.matmul(kPrime, np.array([q.x,q.y,q.z]))
 
     return kPrime_oXEpsilon
 
@@ -40,31 +40,17 @@ def comp_kEpsilon(q, K_o):
 def q_integration(omega, qt, dt):
 
     omega = omega * dt/2
+    q = quaternion.from_vector_part(omega, vector_axis=-1)
+    q_exp = np.exp(q)
 
-    if qt.norm > 0:
-        norm_omega = np.linalg.norm(omega)
-        if norm_omega > 0:
-            epsilon = (omega/norm_omega)*math.sin(norm_omega)
-            eta = math.cos(norm_omega)
-            exp = Quaternion(np.array([eta, epsilon[0], epsilon[1], epsilon[2]]))
-            q = exp*qt
-        else:
-            q = qt
-    else:
-        q = qt   
+    return q_exp * qt
 
-    q = q.normalised
-    return q
+# Method for adding the compliant orientation to the desired orientation and then converting that to axis angles
+def quat2axis(o_d, q_epsilon):
 
-# Method for adding the compliant orientation to the desired orientation and then converting that to a euler angles xyz.
-def quat2euler(o_d, q_epsilon):
-
-    rot = R.from_rotvec(o_d)
-    q_d = Quaternion(matrix=R.as_matrix(rot))
-
-    q_c = (q_epsilon * q_d.conjugate).conjugate
-    o_c = R.from_matrix(q_c.rotation_matrix)
-    o_c = o_c.as_euler('xyz')
+    q_d = quaternion.from_rotation_vector(o_d)
+    q_c = q_d * q_epsilon
+    o_c = quaternion.as_rotation_vector(q_c)
     
     return o_c
 
@@ -81,7 +67,7 @@ def compute_oc(o_d, mu, M_o, D_o, K_o, qt, omega, uDo, kEpsilon, dt):
 
     kEpsilon = comp_kEpsilon(q_epsilon, K_o)
 
-    o_c = quat2euler(o_d, q_epsilon)
+    o_c = quat2axis(o_d, q_epsilon)
 
     return qt, omega, uDo, kEpsilon, o_c
 
@@ -99,9 +85,8 @@ def testController():
     D_o = np.array([[1,0,0],[0,1,0],[0,0,1]])
     K_o = np.array([[1,0,0],[0,1,0],[0,0,1]])
 
-    euler = o_d
-    rot = R.from_euler('xyz',euler)
-    qt = Quaternion(matrix=R.as_matrix(rot))
+    axis_angles = o_d
+    qt = quaternion.from_rotation_vector(axis_angles)
 
     timestep = 0
     dt = 1/50
@@ -130,7 +115,7 @@ def testController():
         o_cs.append(o_c)
         torques.append(mu)
 
-    print("Test Done")
+    print("Plotting Results")
     # Plotting The compliant rotation and the external torques
     o_cs = np.asarray(o_cs)
     torques = np.asarray(torques)
@@ -138,3 +123,4 @@ def testController():
     plot(o_cs,torques)
 
 testController()
+
