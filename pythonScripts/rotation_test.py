@@ -36,60 +36,46 @@ def comp_kEpsilon(q, K_o):
 
     return kPrime_oXEpsilon
 
-# Method for integarting the quaternions
-def q_integration(omega, qt, dt):
+# Method for computing the compliant orientation
+def compute_oc(o_d, mu, M_o, D_o, K_o, qt, omega, kEpsilon, dt):
+    sum = mu -  D_o @ omega - kEpsilon
+    omega_d = np.matmul(np.linalg.inv(M_o),sum)
 
-    omega = omega * dt/2
-    q = quaternion.from_vector_part(omega, vector_axis=-1)
+    omega += (omega_d * dt)
+
+    omega_half = omega * dt/2
+
+    q = quaternion.from_vector_part(omega_half, vector_axis=-1)
     q_exp = np.exp(q)
+    q_epsilon = q_exp * qt
 
-    return q_exp * qt
-
-# Method for adding the compliant orientation to the desired orientation and then converting that to axis angles
-def quat2axis(o_d, q_epsilon):
+    kEpsilon = K_o @ q_epsilon.imag
+    #kEpsilon = comp_kEpsilon(q_epsilon, K_o)
 
     q_d = quaternion.from_rotation_vector(o_d)
     q_c = q_d * q_epsilon
     o_c = quaternion.as_rotation_vector(q_c)
-    
-    return o_c
 
-# Method for computing the compliant orientation
-def compute_oc(o_d, mu, M_o, D_o, K_o, qt, omega, uDo, kEpsilon, dt):
-    sum = mu - uDo - kEpsilon
-    omega_d = np.matmul(sum,np.linalg.inv(M_o))
-
-    omega = omega + (omega_d * dt)
-
-    q_epsilon = q_integration(omega, qt, dt)
-
-    uDo = np.matmul(omega , D_o)
-
-    kEpsilon = comp_kEpsilon(q_epsilon, K_o)
-
-    o_c = quat2axis(o_d, q_epsilon)
-
-    return qt, omega, uDo, kEpsilon, o_c
+    return q_epsilon, omega, kEpsilon, o_c
 
 def testController():
     # Initial Estimates
-    o_d = np.array([1,1,1])
-    mu = np.array([0,0,0])  
+    o_d = np.array([1.0,1.0,1.0])
+    mu = np.array([0.0,0.0,0.0])  
 
-    uDo = np.array([0,0,0])
-    kEpsilon = np.array([0,0,0])
+    kEpsilon = np.array([0.0,0.0,0.0])
 
-    omega = np.array([0,0,0])
+    omega = np.array([0.0,0.0,0.0])
 
-    M_o = np.array([[1,0,0],[0,1,0],[0,0,1]])
-    D_o = np.array([[1,0,0],[0,1,0],[0,0,1]])
-    K_o = np.array([[1,0,0],[0,1,0],[0,0,1]])
+    M_o = np.array([[0.25,0.0,0.0],[0.0,0.25,0.0],[0.0,0.0,0.25]])
+    D_o = np.array([[0.5,0.0,0.0],[0.0,0.5,0.0],[0.0,0.0,0.5]])
+    K_o = np.array([[0.7,0.0,0.0],[0.0,0.7,0.0],[0.0,0.0,0.7]])
 
-    axis_angles = o_d
-    qt = quaternion.from_rotation_vector(axis_angles)
+    axis_angles = [0.0,0.0,0.0]
+    q_epsilon = quaternion.from_rotation_vector(axis_angles)
 
     timestep = 0
-    dt = 1/50
+    dt = 1/500
     test_duration = 10
 
     o_cs = []
@@ -98,7 +84,7 @@ def testController():
     # Main loop for testing runs for x seconds
     print("Starting Test")
     while timestep < test_duration:
-        qt, omega, uDo, kEpsilon, o_c = compute_oc(o_d, mu, M_o, D_o, K_o, qt, omega, uDo, kEpsilon, dt)
+        q_epsilon, omega, kEpsilon, o_c = compute_oc(o_d, mu, M_o, D_o, K_o, q_epsilon, omega, kEpsilon, dt)
         time.sleep(dt)
 
         # Adding an external torque a 1 second
