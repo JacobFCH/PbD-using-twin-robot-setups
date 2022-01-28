@@ -99,7 +99,7 @@ def testController():
 
 
     timestep = 0
-    dt = 1/50
+    dt = 1/500
     test_duration = 10
 
     o_cs = []
