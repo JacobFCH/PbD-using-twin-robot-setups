@@ -7,7 +7,7 @@ import math
 
 class AdmittanceController:
     def __init__(self):
-        self.dt = 1/50
+        self.dt = 1/500
 
         # Positional Parameters
         self.M_p = np.diag([1.0,1.0,1.0])
@@ -21,7 +21,7 @@ class AdmittanceController:
 
         # Rotational Parameters
         self.M_o = np.diag([1.5,1.5,1.5])
-        self.D_o = np.diag([6.48074069840786,6.48074069840786,6.48074069840786])
+        self.D_o = np.diag([6.5,6.5,6.5]) # 6.48074069840786
         #self.K_o = np.diag([7.0,7.0,7.0])
         self.K_o = np.diag([0.0,0.0,0.0])
 
