@@ -1,4 +1,4 @@
 #Ignore remote api binding file
-coppeliaSim/remoteApi.so
+**/coppeliaSim/remoteApi.so
 #Ignore Coppelia Launce file
-coppeliaSim/launchCoppelia.sh
+**/coppeliaSim/launchCoppelia.sh
