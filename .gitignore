@@ -1,4 +1,4 @@
 #Ignore remote api binding file
-**/remoteApi.so
+remoteApi.*
 #Ignore Coppelia Launce file
-**/launchCoppelia.*
+launchCoppelia.*
