@@ -54,7 +54,7 @@ class SimController():
         distR = np.linalg.norm(np.asarray(goalR)-np.asarray(curR))
 
         Pppu = 50
-        Rppu = 10
+        Rppu = 50
 
         return int(np.maximum(distP * Pppu, distR * Rppu))
 
@@ -106,9 +106,9 @@ if __name__ == "__main__":
 
     time.sleep(2)
 
-    controller = SimController(clientID, "UR5")
+    controller = SimController(clientID, "UR10")
 
-    controller.moveL([0.2, -0.0062545, 0.5, np.pi, 0, 0], 1, 1, 1)
+    controller.moveL([0.2, -0.0062545, 0.5, np.pi, 0, 0], 20, 20, 20)
 
     # Now send some data to CoppeliaSim in a non-blocking fashion:
     sim.simxAddStatusbarMessage(clientID,'Hello CoppeliaSim!',sim.simx_opmode_oneshot)
