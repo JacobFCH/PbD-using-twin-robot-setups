@@ -1,4 +1,6 @@
+import imp
 import coppeliaSim.sim as sim # Import for simulation environment
+from pythonScripts.admittanceController import AdmittanceController
 import numpy as np
 import time
 
@@ -40,7 +42,7 @@ class SimController():
 
     def getIKpath(self, pose, n_points=100):
         _, _, path, _, _ = sim.simxCallScriptFunction(self.simClientID, self.RobotName, sim.sim_scripttype_childscript,'ikPath',[n_points], pose,[], bytearray(), sim.simx_opmode_blocking)
-        print(path)
+        #print(path)
         return [path[x:x + 6] for x in range(0, len(path), 6)]
 
     def getNpoints(self, pose):
@@ -53,8 +55,8 @@ class SimController():
         distP = np.linalg.norm(np.asarray(goalP)-np.asarray(curP))
         distR = np.linalg.norm(np.asarray(goalR)-np.asarray(curR))
 
-        Pppu = 50
-        Rppu = 50
+        Pppu = 10
+        Rppu = 10
 
         return int(np.maximum(distP * Pppu, distR * Rppu))
 
@@ -71,9 +73,9 @@ class SimController():
 
             if np.abs(np.sum(Q - cur_conf)) < 0.01:
                 complete = True
-            time.sleep(0.01)
-            if time.time() - t1 > 5.0:
-                complete = True
+            #time.sleep(0.01)
+            #if time.time() - t1 > 0.1:
+            #    complete = True
 
         self.curConf = cur_conf
         return False
@@ -104,12 +106,36 @@ if __name__ == "__main__":
     else:
         print ('Remote API function call returned with error code: ',res)
 
-    time.sleep(2)
+    time.sleep(0.5)
+    
+    dt = 1/50
+    simController = SimController(clientID, "UR10")
+    controller = AdmittanceController(dt)
 
-    controller = SimController(clientID, "UR10")
+    desired_frame = [0.0, 0.5, 0.5, np.pi, 0, 0]
+    force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # Move to inital pose for testing
+    simController.moveL(desired_frame, 10, 10, 10)
 
-    controller.moveL([0.2, -0.0062545, 0.5, np.pi, 0, 0], 20, 20, 20)
+    timestep = 0
+    print("Starting Test Loop")
+    while timestep < 10:
+        compliant_frame = controller.computeCompliance(desired_frame, force_torque)
+        print(compliant_frame)
+        simController.moveL(compliant_frame, 10, 10, 10)
 
+        # Adding an external force a 1 second
+        if timestep > 1 and timestep < 1 + dt:
+            print("adding external force")
+            force_torque = np.array([0.0,0.0,0.0,0.0,10.0,0.0])
+
+        # Removing the external force at 4 seconds
+        if timestep > 3 and timestep < 3 + dt:
+            print("no external force")
+            force_torque = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
+        timestep += dt
+
+        time.sleep(dt)
     # Now send some data to CoppeliaSim in a non-blocking fashion:
     sim.simxAddStatusbarMessage(clientID,'Hello CoppeliaSim!',sim.simx_opmode_oneshot)
 

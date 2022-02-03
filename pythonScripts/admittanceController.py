@@ -6,14 +6,14 @@ import quaternion
 import math
 
 class AdmittanceController:
-    def __init__(self):
-        self.dt = 1/500
+    def __init__(self, dt = 1/500):
+        self.dt = dt
 
         # Positional Parameters
         self.M_p = np.diag([1.0,1.0,1.0])
         self.D_p = np.diag([2.0,2.0,2.0])
-        #self.K_p = np.diag([1.0,1.0,1.0])
-        self.K_p = np.diag([0.0,0.0,0.0])
+        self.K_p = np.diag([1.0,1.0,1.0])
+        #self.K_p = np.diag([0.0,0.0,0.0])
 
         self.pdd_cd = np.array([0.0,0.0,0.0])
         self.pd_cd = np.array([0.0,0.0,0.0])
@@ -22,8 +22,8 @@ class AdmittanceController:
         # Rotational Parameters
         self.M_o = np.diag([1.5,1.5,1.5])
         self.D_o = np.diag([6.5,6.5,6.5]) # 6.48074069840786
-        #self.K_o = np.diag([7.0,7.0,7.0])
-        self.K_o = np.diag([0.0,0.0,0.0])
+        self.K_o = np.diag([7.0,7.0,7.0])
+        #self.K_o = np.diag([0.0,0.0,0.0])
 
         self.kEpsilon = np.array([0.0,0.0,0.0])
         self.omega = np.array([0.0,0.0,0.0])
@@ -63,91 +63,91 @@ class AdmittanceController:
 
         q_c = quaternion.from_rotation_vector(d_f[3:6]) * self.q_epsilon
         o_c = quaternion.as_rotation_vector(q_c)
+        r = R.from_rotvec(o_c)
+        o_c = r.as_euler('zyx')
 
         return np.concatenate((p_c, o_c),axis=0)
 
-def plot(position, forces):
-    x = range(len(position))
-    fig, ax = plt.subplots(2, 3)
-    ax[0,0].plot(x,position[:,0])
-    ax[0,0].set_title('Compiant Position - X axis')
-    ax[0,1].plot(x,position[:,1])
-    ax[0,1].set_title('Compiant Position - Y axis')
-    ax[0,2].plot(x,position[:,2])
-    ax[0,2].set_title('Compiant Position - Z axis')
-    ax[1,0].plot(x,forces[:,0])
-    ax[1,0].set_title('External Force - X axis')
-    ax[1,1].plot(x,forces[:,1])
-    ax[1,1].set_title('External Force - Y axis')
-    ax[1,2].plot(x,forces[:,2])
-    ax[1,2].set_title('External Force - Z axis')
-    plt.show()
+    def plot(self, position, forces):
+        x = range(len(position))
+        fig, ax = plt.subplots(2, 3)
+        ax[0,0].plot(x,position[:,0])
+        ax[0,0].set_title('Compiant Position - X axis')
+        ax[0,1].plot(x,position[:,1])
+        ax[0,1].set_title('Compiant Position - Y axis')
+        ax[0,2].plot(x,position[:,2])
+        ax[0,2].set_title('Compiant Position - Z axis')
+        ax[1,0].plot(x,forces[:,0])
+        ax[1,0].set_title('External Force - X axis')
+        ax[1,1].plot(x,forces[:,1])
+        ax[1,1].set_title('External Force - Y axis')
+        ax[1,2].plot(x,forces[:,2])
+        ax[1,2].set_title('External Force - Z axis')
+        plt.show()
 
-def plot3D(position):
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
-    ax.plot(position[:,0],position[:,1],position[:,2])
-    plt.show()
+    def plot3D(self, position):
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+        ax.plot(position[:,0],position[:,1],position[:,2])
+        plt.show()
 
-def generate_path(resolution ,r, x0, y0, z0):
-    path = []
-    theta = 0
-    while theta <= 360:
-        x = x0 + r * math.cos(theta * math.pi/180)
-        y = y0 + r * math.sin(theta * math.pi/180)
-        theta += 360/resolution
-        path.append([x,y,z0])
-    return path
+    def generate_path(self, resolution ,r, x0, y0, z0):
+        path = []
+        theta = 0
+        while theta <= 360:
+            x = x0 + r * math.cos(theta * math.pi/180)
+            y = y0 + r * math.sin(theta * math.pi/180)
+            theta += 360/resolution
+            path.append([x,y,z0])
+        return path
 
-def testController():
-    # Initial Estimates
-    d_f = np.array([1.0,1.0,1.0,np.pi/2,0.0,0.0])
-    f_t = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
+    def testController(self):
+        # Initial Estimates
+        d_f = np.array([1.0,1.0,1.0,np.pi/2,0.0,0.0])
+        f_t = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
 
-    controller = AdmittanceController()
+        controller = AdmittanceController()
 
-    timestep = 0
+        timestep = 0
 
-    p_cs = []
-    o_cs = []
-    forces = []
-    torques = []
-    path = generate_path(360, 2, 1 , 1 ,1)
-    path_iterator = 0
-    # Main loop for testing runs for 5 seconds
-    print("Starting Test Loop")
-    while timestep < 10:
-        #d_f[0:3] = path[path_iterator]
-        path_iterator = (path_iterator + 1) % len(path)
-        # Computing compliant position using a integrating from 0 to 1, not sure if this is correct
-        c_f = controller.computeCompliance(d_f,f_t)
-        time.sleep(controller.dt)
+        p_cs = []
+        o_cs = []
+        forces = []
+        torques = []
+        path = self.generate_path(360, 2, 1 , 1 ,1)
+        path_iterator = 0
+        # Main loop for testing runs for 5 seconds
+        print("Starting Test Loop")
+        while timestep < 10:
+            #d_f[0:3] = path[path_iterator]
+            path_iterator = (path_iterator + 1) % len(path)
+            # Computing compliant position using a integrating from 0 to 1, not sure if this is correct
+            c_f = controller.computeCompliance(d_f,f_t)
+            time.sleep(controller.dt)
 
-        # Adding an external force a 1 second
-        if timestep > 2 and timestep < 2 + controller.dt:
-            print("adding external force")
-            f_t = np.array([1.0,0.0,0.0,np.pi/2,0.0,0.0])
+            # Adding an external force a 1 second
+            if timestep > 2 and timestep < 2 + controller.dt:
+                print("adding external force")
+                f_t = np.array([1.0,0.0,0.0,np.pi/2,0.0,0.0])
 
-        # Removing the external force at 4 seconds
-        if timestep > 5 and timestep < 5 + controller.dt:
-            print("no external force")
-            f_t = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
-        timestep += controller.dt
+            # Removing the external force at 4 seconds
+            if timestep > 5 and timestep < 5 + controller.dt:
+                print("no external force")
+                f_t = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
+            timestep += controller.dt
 
-        p_cs.append(c_f[0:3])
-        o_cs.append(c_f[3:6])
-        forces.append(f_t[0:3])
-        torques.append(f_t[3:6])
+            p_cs.append(c_f[0:3])
+            o_cs.append(c_f[3:6])
+            forces.append(f_t[0:3])
+            torques.append(f_t[3:6])
 
-    print("Plotting Results")
-    # Plotting The compliant postion and the external forces
-    p_cs = np.asarray(p_cs)
-    o_cs = np.asarray(o_cs)
-    forces = np.asarray(forces)
-    torques = np.asarray(torques)
+        print("Plotting Results")
+        # Plotting The compliant postion and the external forces
+        p_cs = np.asarray(p_cs)
+        o_cs = np.asarray(o_cs)
+        forces = np.asarray(forces)
+        torques = np.asarray(torques)
 
-    plot(p_cs,forces)
-    plot(o_cs,torques)
-    #plot3D(p_cs)
-
-testController()
+        self.plot(p_cs,forces)
+        self.plot(o_cs,torques)
+        #plot3D(p_cs)
