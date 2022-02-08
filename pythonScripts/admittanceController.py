@@ -61,7 +61,9 @@ class AdmittanceController:
 
         self.kEpsilon = self.comp_kEpsilon(self.q_epsilon, self.K_o)
 
-        q_c = quaternion.from_rotation_vector(d_f[3:6]) * self.q_epsilon
+        eul = R.from_euler('zyx', d_f[3:6])
+        d_o = eul.as_rotvec()
+        q_c = quaternion.from_rotation_vector(d_o) * self.q_epsilon
         o_c = quaternion.as_rotation_vector(q_c)
         r = R.from_rotvec(o_c)
         o_c = r.as_euler('zyx')
@@ -102,8 +104,8 @@ class AdmittanceController:
         return path
 
     def testController(self):
-        # Initial Estimates
-        d_f = np.array([1.0,1.0,1.0,np.pi/2,0.0,0.0])
+        # Initial Estimates euler zyx
+        d_f = np.array([1.0,1.0,1.0,0.0,0.0,np.pi/2])
         f_t = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
 
         controller = AdmittanceController()
@@ -128,7 +130,7 @@ class AdmittanceController:
             # Adding an external force a 1 second
             if timestep > 2 and timestep < 2 + controller.dt:
                 print("adding external force")
-                f_t = np.array([1.0,0.0,0.0,np.pi/2,0.0,0.0])
+                f_t = np.array([1.0,0.0,0.0,0.0,0.0,1.0])
 
             # Removing the external force at 4 seconds
             if timestep > 5 and timestep < 5 + controller.dt:

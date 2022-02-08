@@ -90,7 +90,7 @@ class SimController():
     def moveL(self, pose, max_vel, max_acc, max_jerk):
         n_points = self.getNpoints(pose)
         path = self.getIKpath(pose,n_points)
-        self.moveJPath(path, max_vel, max_acc, max_jerk)
+        #self.moveJPath(path, max_vel, max_acc, max_jerk)
 
 if __name__ == "__main__":
     sim.simxFinish(-1)  # just in case, close all opened connections
@@ -112,14 +112,14 @@ if __name__ == "__main__":
     simController = SimController(clientID, "UR10")
     controller = AdmittanceController(dt)
 
-    desired_frame = [0.0, 0.5, 0.5, np.pi, 0, 0]
+    desired_frame = [0.0, 0.5, 0.5, 0.0, 0.0, np.pi]
     force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     # Move to inital pose for testing
     simController.moveL(desired_frame, 10, 10, 10)
 
     timestep = 0
     print("Starting Test Loop")
-    while timestep < 10:
+    while timestep < 8:
         compliant_frame = controller.computeCompliance(desired_frame, force_torque)
         print(compliant_frame)
         simController.moveL(compliant_frame, 10, 10, 10)
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         # Adding an external force a 1 second
         if timestep > 1 and timestep < 1 + dt:
             print("adding external force")
-            force_torque = np.array([0.0,0.0,0.0,0.0,10.0,0.0])
+            force_torque = np.array([0.0,0.0,0.0,10.0,0.0,0.0])
 
         # Removing the external force at 4 seconds
         if timestep > 3 and timestep < 3 + dt:
