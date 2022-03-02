@@ -61,12 +61,12 @@ class AdmittanceController:
 
         self.kEpsilon = self.comp_kEpsilon(self.q_epsilon, self.K_o)
 
-        eul = R.from_euler('zyx', d_f[3:6])
+        eul = R.from_euler('xyz', d_f[3:6])
         d_o = eul.as_rotvec()
         q_c = quaternion.from_rotation_vector(d_o) * self.q_epsilon
         o_c = quaternion.as_rotation_vector(q_c)
         r = R.from_rotvec(o_c)
-        o_c = r.as_euler('zyx')
+        o_c = r.as_euler('xyz')
 
         return np.concatenate((p_c, o_c),axis=0)
 
