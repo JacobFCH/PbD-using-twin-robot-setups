@@ -1,7 +1,8 @@
 import imp
 import coppeliaSim.sim as sim # Import for simulation environment
 from pythonScripts.admittanceController import AdmittanceController
-import roboticstoolbox as rbt
+from pythonScripts.ikSolver import ikSolver
+from scipy.spatial.transform.rotation import Rotation as R
 from spatialmath import *
 import numpy as np
 import time
@@ -46,6 +47,13 @@ class SimController():
         rot = sim.simxGetObjectOrientation(self.simClientID, tip_handle, self.tableHandle, sim.simx_opmode_blocking)
         return pos[1] + rot[1]
 
+    def f2t(self, frame):
+        T = np.eye(4)
+        r = R.from_euler('xyz',frame[3:6])
+        T[0:3,0:3] = r.as_matrix()
+        T[0:3,3] = frame[0:3]
+        return T
+
 if __name__ == "__main__":
     sim.simxFinish(-1)  # just in case, close all opened connections
     clientID = sim.simxStart('127.0.0.1', 19999, True, True, 5000, 5)  # Connect to CoppeliaSim
@@ -65,28 +73,26 @@ if __name__ == "__main__":
     dt = 1/50
     simController = SimController(clientID, "UR5")
     controller = AdmittanceController(dt)
+    ik = ikSolver()
 
     desired_frame = [0.0, 0.5, 1.2, 0.0, 0.0, 0.0]
     force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     
-    robot = rbt.models.DH.UR5()
-    start_conf = np.rad2deg(np.asarray([-0.3185, -0.2370, -4.2150, -0.2534, -1.5708, -1.8867]))
-    print(start_conf)
-    simController.setNewConf(start_conf)
-
-    time.sleep(100)
+    #start_conf = np.rad2deg(np.asarray([-0.38839511, -1.62795863,  2.27492498, -2.21776268,  1.56859972,  1.95919144]))
+    #print(start_conf)
+    #simController.setNewConf(start_conf)
 
     timestep = 0
     print("Starting Test Loop")
     while timestep < 8:
         startTime = time.time()
         compliant_frame = controller.computeCompliance(desired_frame, force_torque)
-
-        T = SE3(compliant_frame[0:3]) * SE3.RPY(compliant_frame[3:6])
+        T = simController.f2t(compliant_frame)
         cur_q = simController.getCurConf()
-        sol = robot.ikine_LMS(T=T,q0=cur_q)
-        print(sol.q)
-        simController.setNewConf(np.asarray(sol.q))
+        q = ik.solveIK(T,cur_q)
+        print(q)
+        #cur_q = simController.getCurConf()
+        #simController.setNewConf(np.asarray(sol.q))
 
         # Adding an external force a 1 second
         if timestep > 1 and timestep < 1 + dt:

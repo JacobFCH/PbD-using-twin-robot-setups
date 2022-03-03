@@ -1,18 +1,37 @@
-from numbers import Real
+from cmath import inf
 import numpy as np
-import roboticstoolbox as rbt
-from spatialmath import *
 from scipy.spatial.transform.rotation import Rotation as R
 import time
 
+# Inverse kinematic solver for a UR robot, currently using DH parameters of a UR5e
+# Based on Kinematics of a UR5, by Rasmus Skovgaard Andersen
+# http://rasmusan.blog.aau.dk/files/ur5_kinematics.pdf
+
 class ikSolver():
     def __init__(self):
-        self.a = [0, -0.425, -0.39225, 0, 0, 0]
-        self.d = [0.089159, 0, 0, 0.10915, 0.09465, 0.0823]
-        self.alpha = [np.pi/2, 0, 0, np.pi/2, -np.pi/2, 0]
+        self.a = [0, -0.425, -0.3922, 0, 0, 0]
+        self.d = [0.1625, 0, 0, 0.1333, 0.0997, 0.0996]
+        self.alpha = [0, np.pi/2, 0, 0, np.pi/2, -np.pi/2] # This is moved one sport over see paper
 
-    def solveIK(self, T06):
-        qs = np.asarray([])
+    def DHLink(self, alpha, a, d, angle):
+        T = np.array([[np.cos(angle),                 -np.sin(angle),                0,              a],
+                     [np.sin(angle) * np.cos(alpha), np.cos(angle) * np.cos(alpha), -np.sin(alpha), -np.sin(alpha)*d],
+                     [np.sin(angle) * np.sin(alpha), np.cos(angle) * np.sin(alpha), np.cos(alpha),  np.cos(alpha)*d],
+                     [0,                             0,                             0,              1]])
+        return T
+
+    def nearestQ(self, qs, last_q):
+        weights = np.array([6,5,4,3,2,1])
+        best_q = np.zeros(6)
+        bestConfDist = np.inf
+        for q in qs:
+            confDist = np.sum(((q - last_q) * weights)**2)
+            if confDist < bestConfDist:
+                bestConfDist = confDist
+                best_q = q
+        return best_q
+
+    def solveIK(self, T06, last_q):
         theta = np.zeros([8,6])
 
         # ---------- Theta 1 ----------
@@ -36,17 +55,57 @@ class ikSolver():
             theta[i,4] = np.arccos((P06[0]*np.sin(theta[i,0])-P06[1]*np.cos(theta[i,0])-self.d[3])/self.d[5])
             if np.isin(i, [2,3,6,7]):
                 theta[i,4] = -theta[i,4]
-        print(theta)
-        return qs
 
+        # ---------- Theta 6 ----------
+        T60 = np.linalg.inv(T06)
+        X60 = T60[0:3,0]
+        Y60 = T60[0:3,1]
 
-frame = np.array([-0.42, 0.0235, 0.45, 0, 0, 0 ])
-#configuration = np.array([-0.3185, 0.2370,  4.2150, 0.2534, 1.5708, 1.8867])
+        for i in range(8):
+            theta[i,5] = np.arctan2((-X60[1]*np.sin(theta[i,0])+Y60[1]*np.cos(theta[i,0]))/np.sin(theta[i,4]),
+                                    ( X60[0]*np.sin(theta[i,0])-Y60[0]*np.cos(theta[i,0]))/np.sin(theta[i,4]))
 
-T = np.eye(4)
-rot = R.from_euler('xyz', frame[3:6])
-T[0:3,0:3] = rot.as_matrix()
-T[0:3,3] = frame[0:3]
+        # ------- Theta 3 and 2 -------
 
-ik = ikSolver()
-ik.solveIK(T)
+        for i in range(8):
+            T01 = self.DHLink(self.alpha[0],self.a[0],self.d[0], theta[i,0])
+            T45 = self.DHLink(self.alpha[4],self.a[4],self.d[4], theta[i,4])
+            T56 = self.DHLink(self.alpha[5],self.a[5],self.d[5], theta[i,5])
+
+            T14 = np.linalg.inv(T01)@T06@np.linalg.inv(T45@T56)
+            P14xz = np.array([T14[0,3], T14[2,3]])
+
+            theta[i,2] = np.arccos((np.linalg.norm(P14xz)**2-self.a[1]**2-self.a[2]**2)/(2*self.a[1]*self.a[2]))
+
+            if i % 2 != 0:
+                theta[i,2] = -theta[i,2]
+
+            theta[i,1] = np.arctan2(-P14xz[1], -P14xz[0]) - np.arcsin(-self.a[2]*np.sin(theta[i,2])/np.linalg.norm(P14xz))
+
+        # ---------- Theta 4 ----------
+
+        for i in range(8):
+            T01 = self.DHLink(self.alpha[0],self.a[0],self.d[0], theta[i,0])
+            T12 = self.DHLink(self.alpha[1],self.a[1],self.d[1], theta[i,1])
+            T23 = self.DHLink(self.alpha[2],self.a[2],self.d[2], theta[i,2])
+            T45 = self.DHLink(self.alpha[4],self.a[4],self.d[4], theta[i,4])
+            T56 = self.DHLink(self.alpha[5],self.a[5],self.d[5], theta[i,5])
+
+            T34 = np.linalg.inv(T01@T12@T23)@T06@np.linalg.inv(T45@T56)
+
+            theta[i,3] = np.arctan2(T34[1,0], T34[0,0])
+
+            q = self.nearestQ(theta, last_q)
+        return q
+
+#frame = np.array([-0.42, 0.0235, 0.45, 0, 0, 0 ])
+#last_q = np.array([-0.38839511, -1.62795863,  2.27492498, -2.21776268,  1.56859972,  1.95919144])
+
+#T = np.eye(4)
+#rot = R.from_euler('xyz', frame[3:6])
+#T[0:3,0:3] = rot.as_matrix()
+#T[0:3,3] = frame[0:3]
+
+#ik = ikSolver()
+#q = ik.solveIK(T, last_q)
+#print(q)
