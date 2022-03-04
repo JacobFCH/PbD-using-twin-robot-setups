@@ -1,7 +1,6 @@
 from cmath import inf
 import numpy as np
 from scipy.spatial.transform.rotation import Rotation as R
-import time
 
 # Inverse kinematic solver for a UR robot, currently using DH parameters of a UR5e
 # Based on Kinematics of a UR5, by Rasmus Skovgaard Andersen
@@ -37,7 +36,7 @@ class ikSolver():
         # ---------- Theta 1 ----------
         P05 = (T06 @ np.array([0,0,-self.d[5], 1]))[0:3]
         phi1 = np.arctan2(P05[1],P05[0])
-        phi2 = np.array([np.arccos(self.d[3]/np.linalg.norm(P05[0:1])), -np.arccos(self.d[3]/np.linalg.norm(P05[0:1]))])
+        phi2 = np.array([np.arccos(self.d[3]/np.linalg.norm(P05[0:2])), -np.arccos(self.d[3]/np.linalg.norm(P05[0:2]))])
 
         for i in range(4):
             theta[i,0] = phi1 + phi2[0] + np.pi/2
@@ -98,14 +97,15 @@ class ikSolver():
             q = self.nearestQ(theta, last_q)
         return q
 
-#frame = np.array([-0.42, 0.0235, 0.45, 0, 0, 0 ])
-#last_q = np.array([-0.38839511, -1.62795863,  2.27492498, -2.21776268,  1.56859972,  1.95919144])
 
-#T = np.eye(4)
-#rot = R.from_euler('xyz', frame[3:6])
-#T[0:3,0:3] = rot.as_matrix()
-#T[0:3,3] = frame[0:3]
+frame = np.array([-0.11, 0.32, 0.52, 0, 0, 0 ])
+last_q = np.array([0.1, -0.3,  1.57081544,  0.34906918, -1.57079661, -0.00000048])
 
-#ik = ikSolver()
-#q = ik.solveIK(T, last_q)
-#print(q)
+T = np.eye(4)
+rot = R.from_euler('xyz', frame[3:6])
+T[0:3,0:3] = rot.as_matrix()
+T[0:3,3] = frame[0:3]
+
+ik = ikSolver()
+q = ik.solveIK(T, last_q)
+print(q)

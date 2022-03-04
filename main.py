@@ -1,4 +1,5 @@
 import imp
+from re import T
 import coppeliaSim.sim as sim # Import for simulation environment
 from pythonScripts.admittanceController import AdmittanceController
 from pythonScripts.ikSolver import ikSolver
@@ -37,9 +38,9 @@ class SimController():
         return self.curConf
 
     def setNewConf(self, new_q):
-        deg_q = np.rad2deg(new_q)
+        #deg_q = np.rad2deg(new_q)
         for i, joint in enumerate(self.jointHandles):
-            self.curConfReturnCodes[i] = sim.simxSetJointTargetPosition(self.simClientID, joint, deg_q[i], sim.simx_opmode_oneshot)
+            self.curConfReturnCodes[i] = sim.simxSetJointTargetPosition(self.simClientID, joint, new_q[i], sim.simx_opmode_oneshot)
 
     def getCurPose(self):
         ret, tip_handle = sim.simxGetObjectHandle(self.simClientID, self.RobotName + "_connection",sim.simx_opmode_blocking)
@@ -75,34 +76,41 @@ if __name__ == "__main__":
     controller = AdmittanceController(dt)
     ik = ikSolver()
 
-    desired_frame = [0.0, 0.5, 1.2, 0.0, 0.0, 0.0]
+    desired_frame = [-0.11, 0.32, 0.52, 0.0, 0.0, 0.0]
     force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    np.set_printoptions(suppress=True)
     
-    #start_conf = np.rad2deg(np.asarray([-0.38839511, -1.62795863,  2.27492498, -2.21776268,  1.56859972,  1.95919144]))
-    #print(start_conf)
-    #simController.setNewConf(start_conf)
+    #start_conf = np.asarray([0.1, -0.3,  1.57081544,  0.34906918, -1.57079661, -0.00000048])
+    start_conf = np.asarray([-1.64461192, -1.44273737,  1.87308305,  1.14045065, -1.57079633,  0.07381559])
+    simController.setNewConf(start_conf)
+    cur_q = start_conf
+    print("After first move",cur_q)
+    
+    time.sleep(100)
 
     timestep = 0
     print("Starting Test Loop")
-    while timestep < 8:
+    while timestep < 2:
         startTime = time.time()
         compliant_frame = controller.computeCompliance(desired_frame, force_torque)
         T = simController.f2t(compliant_frame)
-        cur_q = simController.getCurConf()
+
         q = ik.solveIK(T,cur_q)
+        cur_q = simController.getCurConf()
         print(q)
-        #cur_q = simController.getCurConf()
-        #simController.setNewConf(np.asarray(sol.q))
+
+        #print(q)
+        simController.setNewConf(np.asarray(q))
 
         # Adding an external force a 1 second
-        if timestep > 1 and timestep < 1 + dt:
-            print("adding external force")
-            force_torque = np.array([0.0,0.0,0.0,10.0,0.0,0.0])
+        #if timestep > 1 and timestep < 1 + dt:
+        #    print("adding external force")
+        #    force_torque = np.array([0.01,0.0,0.0,0.0,0.0,0.0])
 
         # Removing the external force at 4 seconds
-        if timestep > 3 and timestep < 3 + dt:
-            print("no external force")
-            force_torque = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
+        #if timestep > 3 and timestep < 3 + dt:
+        #    print("no external force")
+        #    force_torque = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
         timestep += dt
 
         diff = time.time() - startTime
