@@ -1,5 +1,6 @@
 from cmath import inf
 import numpy as np
+import roboticstoolbox as rtb
 from scipy.spatial.transform.rotation import Rotation as R
 
 # Inverse kinematic solver for a UR robot, currently using DH parameters of a UR5e
@@ -8,8 +9,10 @@ from scipy.spatial.transform.rotation import Rotation as R
 
 class ikSolver():
     def __init__(self):
+        #self.d = [0.1625, 0, 0, 0.1333, 0.0997, 0.0996]
+
         self.a = [0, -0.425, -0.3922, 0, 0, 0]
-        self.d = [0.1625, 0, 0, 0.1333, 0.0997, 0.0996]
+        self.d = [0.08946, 0, 0, 0.1091, 0.09465, 0.0823]
         self.alpha = [0, np.pi/2, 0, 0, np.pi/2, -np.pi/2] # This is moved one sport over see paper
 
     def DHLink(self, alpha, a, d, angle):
@@ -94,12 +97,14 @@ class ikSolver():
 
             theta[i,3] = np.arctan2(T34[1,0], T34[0,0])
 
-            q = self.nearestQ(theta, last_q)
+        #print(theta, "\n")
+        q = self.nearestQ(theta, last_q)
         return q
 
 
-frame = np.array([-0.11, 0.32, 0.52, 0, 0, 0 ])
-last_q = np.array([0.1, -0.3,  1.57081544,  0.34906918, -1.57079661, -0.00000048])
+np.set_printoptions(suppress=True)
+frame = np.array([-0.4385,     -0.1091,     -0.05148,    0.,          0.,          1.57079633])
+last_q = np.array([ 0.,         -0.34906585,  1.57079633,  0.34906585, -1.57079633,  0.        ])
 
 T = np.eye(4)
 rot = R.from_euler('xyz', frame[3:6])
@@ -108,4 +113,27 @@ T[0:3,3] = frame[0:3]
 
 ik = ikSolver()
 q = ik.solveIK(T, last_q)
-print(q)
+#print(q)
+
+waypoint1 = np.array([-0.4385,     -0.1091,     -0.05148,    0.,          0.,          1.57079633])
+waypoint2 = np.array([-0.4385,     0.1091,     -0.05148,    0.,          0.,          1.57079633])
+
+path = np.linspace(waypoint1[0:3],waypoint2[0:3])
+
+UR5 = rtb.models.DH.UR5()
+
+for pose in path:
+    T = np.eye(4)
+    rot = R.from_euler('xyz', frame[3:6])
+    T[0:3,0:3] = rot.as_matrix()
+    T[0:3,3] = pose
+
+    print(T)
+
+    q = ik.solveIK(T, last_q)
+    last_q = q
+    print(q)
+
+    print(UR5.fkine(q))
+
+    print("\n")

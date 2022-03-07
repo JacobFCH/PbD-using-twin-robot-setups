@@ -1,10 +1,9 @@
-import imp
 from re import T
 import coppeliaSim.sim as sim # Import for simulation environment
 from pythonScripts.admittanceController import AdmittanceController
 from pythonScripts.ikSolver import ikSolver
+import roboticstoolbox as rtb
 from scipy.spatial.transform.rotation import Rotation as R
-from spatialmath import *
 import numpy as np
 import time
 
@@ -38,9 +37,11 @@ class SimController():
         return self.curConf
 
     def setNewConf(self, new_q):
-        #deg_q = np.rad2deg(new_q)
+        deg_q = np.rad2deg(new_q)
+        sim.simxPauseCommunication(self.simClientID, True)
         for i, joint in enumerate(self.jointHandles):
             self.curConfReturnCodes[i] = sim.simxSetJointTargetPosition(self.simClientID, joint, new_q[i], sim.simx_opmode_oneshot)
+        sim.simxPauseCommunication(self.simClientID, False)
 
     def getCurPose(self):
         ret, tip_handle = sim.simxGetObjectHandle(self.simClientID, self.RobotName + "_connection",sim.simx_opmode_blocking)
@@ -76,52 +77,91 @@ if __name__ == "__main__":
     controller = AdmittanceController(dt)
     ik = ikSolver()
 
-    desired_frame = [-0.11, 0.32, 0.52, 0.0, 0.0, 0.0]
+    desired_frame = [-0.4389, -0.1091, -0.05148, 0.0, 0.0, np.pi/2]
     force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     np.set_printoptions(suppress=True)
     
-    #start_conf = np.asarray([0.1, -0.3,  1.57081544,  0.34906918, -1.57079661, -0.00000048])
-    start_conf = np.asarray([-1.64461192, -1.44273737,  1.87308305,  1.14045065, -1.57079633,  0.07381559])
+    #Initialize robot pose
+    start_conf = np.asarray([0.0, -0.3490658504,  1.5707963268,  0.3490658504, -1.5707963268,  0])
     simController.setNewConf(start_conf)
     cur_q = start_conf
-    print("After first move",cur_q)
-    
-    time.sleep(100)
+    print(cur_q)
 
+    compliant_frame = controller.computeCompliance(desired_frame, force_torque)
+    print(compliant_frame)
+
+    T = simController.f2t(compliant_frame)
+
+    q = ik.solveIK(T,cur_q)
+
+    #time.sleep(100)
+
+    #pose = UR5.fkine(start_conf)
+
+    #rotm = R.from_matrix(np.array([[0,-1,0],[1,0,0],[0,0,1]]))
+
+    #print(pose, rotm.as_euler('xyz'))
+
+    #time.sleep(100)
+
+    waypoint1 = np.array([-0.4385,     -0.1091,     -0.05148,    0.,          0.,          1.57079633])
+    waypoint2 = np.array([-0.1385,     -0.1091,     -0.05148,    0.,          0.,          1.57079633])
+
+    path = np.linspace(waypoint1[0:3],waypoint2[0:3])
+
+    UR5 = rtb.models.DH.UR5()
+
+    for pose in path:
+        T = np.eye(4)
+        rot = R.from_euler('xyz', desired_frame[3:6])
+        T[0:3,0:3] = rot.as_matrix()
+        T[0:3,3] = pose
+
+        print(T)
+
+        q = ik.solveIK(T, cur_q)
+        cur_q = q
+        print(q)
+
+        print(UR5.fkine(q))
+
+        simController.setNewConf(np.asarray(q))
+
+        time.sleep(1)
+        print("\n")
+
+    '''    
     timestep = 0
     print("Starting Test Loop")
-    while timestep < 2:
+    while timestep < 10:
         startTime = time.time()
         compliant_frame = controller.computeCompliance(desired_frame, force_torque)
+        #print(compliant_frame)
         T = simController.f2t(compliant_frame)
 
         q = ik.solveIK(T,cur_q)
-        cur_q = simController.getCurConf()
-        print(q)
-
+        cur_q = q
+        #cur_q = simController.getCurConf()
         #print(q)
+
         simController.setNewConf(np.asarray(q))
 
         # Adding an external force a 1 second
-        #if timestep > 1 and timestep < 1 + dt:
-        #    print("adding external force")
-        #    force_torque = np.array([0.01,0.0,0.0,0.0,0.0,0.0])
+        if timestep > 1 and timestep < 1 + dt:
+            print("adding external force")
+            force_torque = np.array([1.0,0.0,0.0,0.0,0.0,0.0])
 
         # Removing the external force at 4 seconds
-        #if timestep > 3 and timestep < 3 + dt:
-        #    print("no external force")
-        #    force_torque = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
+        if timestep > 3 and timestep < 3 + dt:
+            print("no external force")
+            force_torque = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
         timestep += dt
 
         diff = time.time() - startTime
         if(diff < dt):
             time.sleep(dt-diff)
-
-    # Now send some data to CoppeliaSim in a non-blocking fashion:
-    sim.simxAddStatusbarMessage(clientID,'Hello CoppeliaSim!',sim.simx_opmode_oneshot)
-
-    # Before closing the connection to CoppeliaSim, make sure that the last command sent out had time to arrive. You can guarantee this with (for example):
-    sim.simxGetPingTime(clientID)
+    '''
 
     # Now close the connection to CoppeliaSim:
+    sim.simxGetPingTime(clientID)
     sim.simxFinish(clientID)
