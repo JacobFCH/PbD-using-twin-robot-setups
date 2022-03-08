@@ -101,7 +101,7 @@ class ikSolver():
         q = self.nearestQ(theta, last_q)
         return q
 
-
+'''
 np.set_printoptions(suppress=True)
 frame = np.array([-0.4385,     -0.1091,     -0.05148,    0.,          0.,          1.57079633])
 last_q = np.array([ 0.,         -0.34906585,  1.57079633,  0.34906585, -1.57079633,  0.        ])
@@ -132,9 +132,9 @@ for pose in path:
 
     q = ik.solveIK(T, last_q)
     last_q = q
-    qs = np.stack(qs, q)
-    print(qs)
+    print(q)
 
     #print(UR5.fkine(q))
 
     #print("\n")
+'''
