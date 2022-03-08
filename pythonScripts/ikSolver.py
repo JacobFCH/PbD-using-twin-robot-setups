@@ -11,9 +11,9 @@ class ikSolver():
     def __init__(self):
         #self.d = [0.1625, 0, 0, 0.1333, 0.0997, 0.0996]
 
-        self.a = [0, -0.425, -0.3922, 0, 0, 0]
-        self.d = [0.08946, 0, 0, 0.1091, 0.09465, 0.0823]
-        self.alpha = [0, np.pi/2, 0, 0, np.pi/2, -np.pi/2] # This is moved one sport over see paper
+        self.a = np.array([0, -0.425, -0.39225, 0, 0, 0])
+        self.d = np.array([0.089159, 0, 0, 0.10915, 0.09465, 0.0823])
+        self.alpha = np.array([0, np.deg2rad(90), 0, 0, np.deg2rad(90), np.deg2rad(-90)]) # This is moved one sport over see paper
 
     def DHLink(self, alpha, a, d, angle):
         T = np.array([[np.cos(angle),                 -np.sin(angle),                0,              a],
@@ -31,7 +31,7 @@ class ikSolver():
             if confDist < bestConfDist:
                 bestConfDist = confDist
                 best_q = q
-        return best_q
+        return np.asarray(best_q)
 
     def solveIK(self, T06, last_q):
         theta = np.zeros([8,6])
@@ -128,12 +128,13 @@ for pose in path:
     T[0:3,0:3] = rot.as_matrix()
     T[0:3,3] = pose
 
-    print(T)
+    #print(T)
 
     q = ik.solveIK(T, last_q)
     last_q = q
-    print(q)
+    qs = np.stack(qs, q)
+    print(qs)
 
-    print(UR5.fkine(q))
+    #print(UR5.fkine(q))
 
-    print("\n")
+    #print("\n")

@@ -1,8 +1,8 @@
-from re import T
 import coppeliaSim.sim as sim # Import for simulation environment
 from pythonScripts.admittanceController import AdmittanceController
 from pythonScripts.ikSolver import ikSolver
 import roboticstoolbox as rtb
+from spatialmath import *
 from scipy.spatial.transform.rotation import Rotation as R
 import numpy as np
 import time
@@ -36,12 +36,14 @@ class SimController():
             self.curConfReturnCodes[i], self.curConf[i] = sim.simxGetJointPosition(self.simClientID, joint, sim.simx_opmode_buffer)
         return self.curConf
 
-    def setNewConf(self, new_q):
-        deg_q = np.rad2deg(new_q)
-        sim.simxPauseCommunication(self.simClientID, True)
-        for i, joint in enumerate(self.jointHandles):
-            self.curConfReturnCodes[i] = sim.simxSetJointTargetPosition(self.simClientID, joint, new_q[i], sim.simx_opmode_oneshot)
-        sim.simxPauseCommunication(self.simClientID, False)
+    def setNewConf(self, q, joint):
+        _ = sim.simxSetJointTargetPosition(self.simClientID, self.jointHandles[joint], q, sim.simx_opmode_oneshot)
+
+        #sim.simxPauseCommunication(self.simClientID, False)
+        #sim.simxPauseCommunication(self.simClientID, True)
+        #for i, joint in enumerate(self.jointHandles):
+        #    self.curConfReturnCodes[i] = sim.simxSetJointTargetPosition(self.simClientID, joint, new_q[i], sim.simx_opmode_oneshot)
+        #sim.simxPauseCommunication(self.simClientID, False)
 
     def getCurPose(self):
         ret, tip_handle = sim.simxGetObjectHandle(self.simClientID, self.RobotName + "_connection",sim.simx_opmode_blocking)
@@ -77,18 +79,18 @@ if __name__ == "__main__":
     controller = AdmittanceController(dt)
     ik = ikSolver()
 
-    desired_frame = [-0.4389, -0.1091, -0.05148, 0.0, 0.0, np.pi/2]
+    desired_frame = [-0.4389, -0.1091, -0.05148, 0.0, 0.0, np.deg2rad(90)]
     force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     np.set_printoptions(suppress=True)
     
     #Initialize robot pose
     start_conf = np.asarray([0.0, -0.3490658504,  1.5707963268,  0.3490658504, -1.5707963268,  0])
-    simController.setNewConf(start_conf)
+    #simController.setNewConf(start_conf)
     cur_q = start_conf
-    print(cur_q)
+    #print(cur_q)
 
     compliant_frame = controller.computeCompliance(desired_frame, force_torque)
-    print(compliant_frame)
+    #print(compliant_frame)
 
     T = simController.f2t(compliant_frame)
 
@@ -104,10 +106,10 @@ if __name__ == "__main__":
 
     #time.sleep(100)
 
-    waypoint1 = np.array([-0.4385,     -0.1091,     -0.05148,    0.,          0.,          1.57079633])
-    waypoint2 = np.array([-0.1385,     -0.1091,     -0.05148,    0.,          0.,          1.57079633])
+    waypoint1 = np.array([-0.4385, -0.1091, -0.05148])
+    waypoint2 = np.array([-0.4385, 0.2091, -0.05148])
 
-    path = np.linspace(waypoint1[0:3],waypoint2[0:3])
+    path = np.linspace(waypoint1,waypoint2)
 
     UR5 = rtb.models.DH.UR5()
 
@@ -117,18 +119,26 @@ if __name__ == "__main__":
         T[0:3,0:3] = rot.as_matrix()
         T[0:3,3] = pose
 
-        print(T)
+        #print(T)
 
         q = ik.solveIK(T, cur_q)
         cur_q = q
-        print(q)
+        #print(cur_q)
 
-        print(UR5.fkine(q))
+        simController.setNewConf(q[0], 0)
+        simController.setNewConf(q[1], 1)
+        #simController.setNewConf(q[2], 2)
+        simController.setNewConf(q[3], 3)
+        simController.setNewConf(q[4], 4)
+        simController.setNewConf(q[5], 5)
 
-        simController.setNewConf(np.asarray(q))
-
-        time.sleep(1)
-        print("\n")
+        #print(UR5.fkine(q))
+        #sim.simxPauseCommunication(simController.simClientID, True)
+        #for i, qs in enumerate(q):
+        #    simController.setNewConf(qs, i)
+        #sim.simxPauseCommunication(simController.simClientID, False)
+        time.sleep(0.02)
+        #print("\n")
 
     '''    
     timestep = 0
