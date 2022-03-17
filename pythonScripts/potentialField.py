@@ -2,6 +2,7 @@ import numpy as np
 from stl import mesh
 from mpl_toolkits import mplot3d
 from matplotlib import pyplot
+import math
 
 new_mesh = mesh.Mesh.from_file('/home/jacob/gits/super-duper-thesis/pythonScripts/DONUT_BOTTOM.stl')
 mesh_normals = new_mesh.normals
@@ -44,12 +45,21 @@ class potentialField():
     def find_nearest(self, point_array, point):
         point_array = np.asarray(point_array)
         idx = (np.sum(np.abs(point_array - point),axis=1)).argmin()
-        return point_array[idx]
+        return idx
 
     # Computes the angle between the obstacle vector (od) and the force maginude (fm) vector
     def computeAngle(self, od, fm):
             angle = np.arccos(np.dot((od).T, fm) / (np.linalg.norm(od) * np.linalg.norm(fm)))
             return angle
+
+    def projectForces(self, u, v, ang):
+        return (-np.cos(ang) * (np.linalg.norm(u)) * (v/np.linalg.norm(v)))
+
+    def logisticFunction(self, x):
+        L = 1
+        k = 4
+        x0 = 1
+        return 1 - (L/(1 + math.exp(-k*(x-x0))))
 
     def computePsi(self, od, fm, angle):
             r = np.cross((od), fm)
@@ -62,44 +72,37 @@ class potentialField():
 
     def computeField(self, x, F, obs_nr):
 
-        p_o = np.zeros(3)
-        p_p = np.zeros(3)
-        p_d = np.zeros(3)
-
-        obstacle_center = np.array([1,0,1])
-        obs_list = np.array([[[1,1,1],[1,2,1],[0,1,1],[1,1,0],[1,0,1]],[[1,1,1],[1,2,1],[0,1,1],[1,1,0],[1,0,1]]])
-        obstacle_radius = 0.5
-
-        #Compute effect from obstacle center
-        obstacle_vector_c = obstacle_center - x
-        angle_o = self.computeAngle(obstacle_vector_c, F)
-        psi_o, Rv_o = self.computePsi(obstacle_vector_c, F, angle_o)
+        obs = np.linspace([4,4,0],[4,-4,0],9)
+        norms = np.linspace([3,4,0],[3,-4,0],9) - obs
+        obs_list = np.array([obs,obs,obs])
 
         #Compute effect from nearest point on the obstacle
-        obstacleVector_p = self.find_nearest(obs_list[obs_nr], x)
-        angle_p = self.computeAngle(obstacleVector_p, F)
-        psi_p, Rv_p = self.computePsi(obstacleVector_p, F, angle_p)
+        obs_idx = self.find_nearest(obs_list[obs_nr], x)
+        obstacleVector_p = obs[obs_idx] - x
+        print(obstacleVector_p)
+        distance_vec = np.linalg.norm(obstacleVector_p)
+        print("Distance",distance_vec)
+        angle_p = self.computeAngle(norms[obs_idx], F)
+        print("Angle",np.rad2deg(angle_p))
+        projection = self.projectForces(F, norms[obs_idx], angle_p)
+        print("Projction of F on the angle",projection)
 
-        Rv_avg = (Rv_o + Rv_p) * 0.5
+        print( "Logi func", self.logisticFunction(distance_vec))
+        squished_forces = np.array([0,0,0])
+        if np.sum(projection) < 0:
+            squished_forces = projection * self.logisticFunction(distance_vec)
+        print( "Squished forces", squished_forces)
 
-        if not (angle_o > np.pi / 2 or angle_p > np.pi/2):
-            p_o += self.gamma_o * Rv_o * psi_o
-            p_p += self.gamma_p * Rv_p * psi_p
-            p_d += self.gamma_d * Rv_avg * np.exp(-self.k*np.linalg.norm(obstacleVector_p))
-        
-        print(p_o,p_p,p_d)
-
-        force = -F
+        force = F + squished_forces
         return force
 
 field = potentialField()
 
 np.set_printoptions(suppress=True)
 
-obs_vec = np.asarray([1,0,0])
+obs_vec = np.asarray([3.5,1,0])
 
-f_vec = np.asarray([0,1,0])
+f_vec = np.asarray([2,2,0])
 
 force = field.computeField(obs_vec, f_vec, 0)
-
-print(field.computeAngle(obs_vec,f_vec))
+print("Resulting force",force)
