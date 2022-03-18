@@ -1,45 +1,11 @@
 import numpy as np
-from stl import mesh
-from mpl_toolkits import mplot3d
-from matplotlib import pyplot
 import math
 
-new_mesh = mesh.Mesh.from_file('/home/jacob/gits/super-duper-thesis/pythonScripts/DONUT_BOTTOM.stl')
-mesh_normals = new_mesh.normals
-
-mesh_v0 = new_mesh.v0
-mesh_v1 = new_mesh.v1
-mesh_v2 = new_mesh.v2
-
-check_normals = np.cross(mesh_v1[0:3] - mesh_v0[0:3], mesh_v2[0:3] - mesh_v0[0:3])
-#print(check_normals)
-#print(mesh_normals[0:3])
-
-# Normal for every v0 in the mesh 
-
-#figure = pyplot.figure()
-#axes = mplot3d.Axes3D(figure)
-
-#axes.add_collection3d(mplot3d.art3d.Poly3DCollection(new_mesh.vectors))
-
-#scale = new_mesh.points.flatten()
-#axes.auto_scale_xyz(scale, scale, scale)
-
-#pyplot.show()
-
 class potentialField():
-    def __init__(self):
-        self.x = 0
-        self.o = 0
-        self.d_ox = self.o - self.x
-
-        self.gamma_o = 2500
-        self.gamma_p = 2500
-        self.gamma_d = 50
-        self.k = 0.01
-        self.beta2 = 20/np.pi
-
-        mesh_list = np.array([])
+    def __init__(self, k, x0):
+        self.L = 1 # Max value of the field, kept at one to have a value between 0 and 1
+        self.k = k # Field steepness, how fast does the field change
+        self.x0 = x0 # Sigmoi midtpoint
 
     # Finds the element of the array that is nearest to the point specified as input
     def find_nearest(self, point_array, point):
@@ -52,57 +18,71 @@ class potentialField():
             angle = np.arccos(np.dot((od).T, fm) / (np.linalg.norm(od) * np.linalg.norm(fm)))
             return angle
 
+    # computes the scalar projection of the force towards the obstacle returning the component of the vector that is in the direction of the obstacle
     def projectForces(self, u, v, ang):
         return (-np.cos(ang) * (np.linalg.norm(u)) * (v/np.linalg.norm(v)))
 
     def logisticFunction(self, x):
-        L = 1
-        k = 4
-        x0 = 1
-        return 1 - (L/(1 + math.exp(-k*(x-x0))))
+        return 1 - (self.L/(1 + math.exp(-self.k*(x-self.x0))))
 
-    def computePsi(self, od, fm, angle):
-            r = np.cross((od), fm)
-            r0 = r / np.linalg.norm(r)
-            Rv = fm * np.cos(np.pi / 2) + np.cross(r0, fm * np.sin(np.pi / 2)) + np.dot(r0, fm) * r0 * (1 - np.cos(np.pi / 2))
+    # Computes the repeling forces of the potential field and adds that to the input force
+    def computeField(self, position, force, obstacle, obstacle_normals):
 
-            d = np.linalg.norm(od)
-            psi = angle * np.exp(-self.beta2 * angle) * np.exp(-self.k * d)
-            return psi, Rv
+        idx = self.find_nearest(obstacle, position)
+        obstacle_vector = obstacle[idx] - position
+        angle = self.computeAngle(obstacle_normals[idx], force)
+        projection = self.projectForces(force, obstacle_normals[idx], angle)
+        
+        if angle > np.deg2rad(90) and angle < np.deg2rad(270):
+            squished_forces = projection * self.logisticFunction(np.linalg.norm(obstacle_vector))
+        else:
+            squished_forces = np.array([0,0,0])
 
-    def computeField(self, x, F, obs_nr):
+        return force + squished_forces
 
-        obs = np.linspace([4,4,0],[4,-4,0],9)
-        norms = np.linspace([3,4,0],[3,-4,0],9) - obs
-        obs_list = np.array([obs,obs,obs])
 
-        #Compute effect from nearest point on the obstacle
-        obs_idx = self.find_nearest(obs_list[obs_nr], x)
-        obstacleVector_p = obs[obs_idx] - x
-        print(obstacleVector_p)
-        distance_vec = np.linalg.norm(obstacleVector_p)
-        print("Distance",distance_vec)
-        angle_p = self.computeAngle(norms[obs_idx], F)
-        print("Angle",np.rad2deg(angle_p))
-        projection = self.projectForces(F, norms[obs_idx], angle_p)
-        print("Projction of F on the angle",projection)
-
-        print( "Logi func", self.logisticFunction(distance_vec))
-        squished_forces = np.array([0,0,0])
-        if np.sum(projection) < 0:
-            squished_forces = projection * self.logisticFunction(distance_vec)
-        print( "Squished forces", squished_forces)
-
-        force = F + squished_forces
-        return force
-
-field = potentialField()
+field = potentialField(4,1)
 
 np.set_printoptions(suppress=True)
 
-obs_vec = np.asarray([3.5,1,0])
+position = np.asarray([0,0,0])
 
-f_vec = np.asarray([2,2,0])
+force = np.asarray([0,0,0])
 
-force = field.computeField(obs_vec, f_vec, 0)
-print("Resulting force",force)
+obs = np.linspace([4,4,0],[4,-4,0],9)
+norms = np.linspace([3,4,0],[3,-4,0],9) - obs
+
+from admittanceController import AdmittanceController
+import time
+
+dt = 1/50
+controller = AdmittanceController(dt, False)
+
+desired_frame = [0, 0, 0, 0, 0.0, 0]
+compliant_frame = desired_frame
+force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+force = force_torque[0:3]
+
+timestep = 0
+print("Starting Test Loop")
+while timestep < 20:
+    startTime = time.time()
+    force = field.computeField(compliant_frame[0:3], force, obs, norms)
+    force_torque[0:3] = force
+    compliant_frame = controller.computeCompliance(desired_frame, force_torque)
+    print(compliant_frame, force)
+
+    # Adding an external force a 1 second
+    if timestep > 1 and timestep < 1 + dt:
+        print("adding external force")
+        force = np.array([2,0.0,0.0])
+
+    # Removing the external force at 4 seconds
+    if timestep > 18 and timestep < 18 + dt:
+        print("no external force")
+        force = np.array([0.0,0.0,0.0])
+    timestep += dt
+
+    diff = time.time() - startTime
+    if(diff < dt):
+        time.sleep(dt-diff)

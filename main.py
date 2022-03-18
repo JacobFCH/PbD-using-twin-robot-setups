@@ -144,7 +144,7 @@ if __name__ == "__main__":
         #simController.moveL(pose, 1, 1, 1, 0)
 
         dt = 1/50
-        controller = AdmittanceController(dt)
+        controller = AdmittanceController(dt, True)
         ik = ikSolver()
 
         desired_frame = [0.125, 0.225, 0.5, np.pi, 0.0, 0]
