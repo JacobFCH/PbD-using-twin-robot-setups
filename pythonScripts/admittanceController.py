@@ -2,8 +2,6 @@ from scipy.spatial.transform.rotation import Rotation as R
 import matplotlib.pyplot as plt
 import numpy as np
 import quaternion
-import math
-import time
 
 class AdmittanceController:
     def __init__(self, dt = 1/500, stiffness=False):

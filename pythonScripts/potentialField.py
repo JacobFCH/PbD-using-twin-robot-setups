@@ -40,7 +40,7 @@ class potentialField():
 
         return force + squished_forces
 
-
+'''
 field = potentialField(4,1)
 
 np.set_printoptions(suppress=True)
@@ -86,3 +86,4 @@ while timestep < 20:
     diff = time.time() - startTime
     if(diff < dt):
         time.sleep(dt-diff)
+'''

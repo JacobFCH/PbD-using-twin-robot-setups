@@ -15,14 +15,10 @@ class simController():
 
         self.jointHandles = np.array([-1, -1, -1, -1, -1, -1])
         self.jointHandleReturnCodes = np.array([-1, -1, -1, -1, -1, -1])
-        self.tableHandleReturnCode, self.tableHandle = sim.simxGetObjectHandle(self.simClientID, "customizableTable",
-                                                                               sim.simx_opmode_blocking)
+        self.tableHandleReturnCode, self.tableHandle = sim.simxGetObjectHandle(self.simClientID, "customizableTable",sim.simx_opmode_blocking)
         #self.sensor = FTsensor.FTsensor(ClientID)
         for i in range(6):
-            self.jointHandleReturnCodes[i], self.jointHandles[i] = sim.simxGetObjectHandle(self.simClientID,
-                                                                                           self.RobotName + "_joint" + str(
-                                                                                               i + 1),
-                                                                                           sim.simx_opmode_blocking)
+            self.jointHandleReturnCodes[i], self.jointHandles[i] = sim.simxGetObjectHandle(self.simClientID, self.RobotName + "_joint" + str(i + 1), sim.simx_opmode_blocking)
 
         if not self.jointHandleReturnCodes.all() == 0:
             exit("Failed to obtain jointHandles")
@@ -31,30 +27,25 @@ class simController():
         self.curConfReturnCodes = np.array([-1, -1, -1, -1, -1, -1])
 
         for i, joint in enumerate(self.jointHandles):
-            self.curConfReturnCodes[i], self.curConf[i] = sim.simxGetJointPosition(self.simClientID, joint,
-                                                                                   sim.simx_opmode_streaming)
+            self.curConfReturnCodes[i], self.curConf[i] = sim.simxGetJointPosition(self.simClientID, joint, sim.simx_opmode_streaming)
 
         if not (self.curConfReturnCodes.all() == 0 or self.curConfReturnCodes.all() == 1):
             exit("Failed to obtain jointPositions")
 
     def getCurConf(self):
         for i, joint in enumerate(self.jointHandles):
-            self.curConfReturnCodes[i], self.curConf[i] = sim.simxGetJointPosition(self.simClientID, joint,
-                                                                                   sim.simx_opmode_buffer)
+            self.curConfReturnCodes[i], self.curConf[i] = sim.simxGetJointPosition(self.simClientID, joint, sim.simx_opmode_buffer)
         return self.curConf
 
     def getCurPose(self):
-        ret, tip_handle = sim.simxGetObjectHandle(self.simClientID, self.RobotName + "_connection",
-                                                  sim.simx_opmode_blocking)
+        _, tip_handle = sim.simxGetObjectHandle(self.simClientID, self.RobotName + "_connection", sim.simx_opmode_blocking)
         pos = sim.simxGetObjectPosition(self.simClientID, tip_handle, self.tableHandle, sim.simx_opmode_blocking)
         rot = sim.simxGetObjectOrientation(self.simClientID, tip_handle, self.tableHandle, sim.simx_opmode_blocking)
         return pos[1] + rot[1]
 
     def moveJ(self, Q, max_vel, max_acc, max_jerk, is_measuring):
         inputInts = [max_vel, max_acc, max_jerk]
-        sim.simxCallScriptFunction(self.simClientID, self.RobotName, sim.sim_scripttype_childscript, 'moveToConfig',
-                                   inputInts, Q,
-                                   [], bytearray(), sim.simx_opmode_blocking)
+        sim.simxCallScriptFunction(self.simClientID, self.RobotName, sim.sim_scripttype_childscript, 'moveToConfig', inputInts, Q, [], bytearray(), sim.simx_opmode_blocking)
         complete = False
         cur_conf = np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0])
         i = 0
@@ -69,15 +60,6 @@ class simController():
             if time.time() - t1 > 5.0:
                 complete = True
 
-            if is_measuring:
-                F, _ = self.sensor.getreading()
-                # print(F)
-                contact = self.sensor.iscontact(F)
-                if contact:
-                    self.sensor.savesensorframe()
-                    # print("Contact!\n")
-                    return True
-
         self.curConf = cur_conf
         return False
 
@@ -86,26 +68,8 @@ class simController():
         self.moveJ(Q[0], 100, 100, 100)
 
     def getIKpath(self, pose, n_points=100):
-        _, _, path, _, _ = sim.simxCallScriptFunction(self.simClientID, self.RobotName, sim.sim_scripttype_childscript,
-                                                      'ikPath',
-                                                      [n_points], pose,
-                                                      [], bytearray(), sim.simx_opmode_blocking)
+        _, _, path, _, _ = sim.simxCallScriptFunction(self.simClientID, self.RobotName, sim.sim_scripttype_childscript, 'ikPath', [n_points], pose, [], bytearray(), sim.simx_opmode_blocking)
         return [path[x:x + 6] for x in range(0, len(path), 6)]
-
-    def getNpoints(self, pose):
-        curPose = self.getCurPose()
-
-        curP = curPose[0:3]
-        curR = curPose[3:6]
-        goalP = pose[0:3]
-        goalR = pose[3:6]
-        distP = np.linalg.norm(np.asarray(goalP)-np.asarray(curP))
-        distR = np.linalg.norm(np.asarray(curR)-np.asarray(curP))
-
-        Pppu = 50
-        Rppu = 10
-
-        return int(np.maximum(distP * Pppu, distR * Rppu))
 
     def moveL(self, pose, max_vel, max_acc, max_jerk, is_measuring=False):
         # Calculate number of points
@@ -120,6 +84,17 @@ class simController():
             if done:
                 return True
         return True
+
+    def getObjectHandle(self, objectName):
+        _, objectHandle = sim.simxGetObjectHandle(self.simClientID, objectName, sim.simx_opmode_blocking)
+        return objectHandle
+
+    def getObjectPose(self, objctHandle, relativeHandle):
+        _, objectPosition = sim.simxGetObjectPosition(self.simClientID, objctHandle, relativeHandle, sim.simx_opmode_blocking)
+        print(objectPosition)
+        _, objectOrientation = sim.simxGetObjectOrientation(self.simClientID ,objctHandle, relativeHandle, sim.simx_opmode_blocking)
+        print(objectOrientation)
+        return np.concatenate((np.asarray(objectPosition), np.asarray(objectOrientation)), axis=0)
 
 if __name__ == "__main__":
     print('Program started')
@@ -150,6 +125,13 @@ if __name__ == "__main__":
         desired_frame = [0.125, 0.225, 0.5, np.pi, 0.0, 0]
         force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         np.set_printoptions(suppress=True)
+        
+        boxHandle = simCont.getObjectHandle("Box")
+        baseHandle = simCont.getObjectHandle("UR5")
+        print(baseHandle)
+        print(boxHandle)
+        boxPose = simCont.getObjectPose(boxHandle, baseHandle)
+        print(boxPose)
 
         timestep = 0
         print("Starting Test Loop")
@@ -162,7 +144,7 @@ if __name__ == "__main__":
             # Adding an external force a 1 second
             if timestep > 0.3 and timestep < 0.32 + dt:
                 print("adding external force")
-                force_torque = np.array([0.0,0.0,0.2,0.0,0.0,0.0])
+                force_torque = np.array([0.0,0.0,0.4,0.0,0.0,0.0])
 
             # Removing the external force at 4 seconds
             if timestep > 1.5 and timestep < 1.5 + dt:
