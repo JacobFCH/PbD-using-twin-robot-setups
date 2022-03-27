@@ -8,12 +8,17 @@ from matplotlib import pyplot
 # Uses numpy-stl library
 
 class STLMesh():
-    def __init__(self, file_name):
+    def __init__(self, file_name, T, scale):
         self.stl_mesh = mesh.Mesh.from_file('/home/jacob/gits/super-duper-thesis/stlfiles/' + file_name + ".stl")
-        self.normals = self.stl_mesh.normals
+        # Move and rotate the mesh, also scale the mesh such that it is in meters
+        self.stl_mesh.transform(T)
+        self.stl_mesh.vectors = self.stl_mesh.vectors * scale
+        self.stl_mesh.update_normals
+        self.normals = self.stl_mesh.normals * scale
         self.vertex0 = self.stl_mesh.v0
         self.vertex1 = self.stl_mesh.v1
         self.vertex2 = self.stl_mesh.v2
+
     
     def plotMesh(self):
         figure = pyplot.figure()

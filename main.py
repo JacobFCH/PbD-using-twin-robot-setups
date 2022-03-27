@@ -1,8 +1,7 @@
 import coppeliaSim.sim as sim # Import for simulation environment
 from pythonScripts.admittanceController import AdmittanceController
-from pythonScripts.ikSolver import ikSolver
-import roboticstoolbox as rtb
-from spatialmath import *
+from pythonScripts.stlMesh import STLMesh
+from pythonScripts.potentialField import potentialField
 from scipy.spatial.transform.rotation import Rotation as R
 import numpy as np
 import time
@@ -43,7 +42,7 @@ class simController():
         rot = sim.simxGetObjectOrientation(self.simClientID, tip_handle, self.tableHandle, sim.simx_opmode_blocking)
         return pos[1] + rot[1]
 
-    def moveJ(self, Q, max_vel, max_acc, max_jerk, is_measuring):
+    def moveJ(self, Q, max_vel, max_acc, max_jerk):
         inputInts = [max_vel, max_acc, max_jerk]
         sim.simxCallScriptFunction(self.simClientID, self.RobotName, sim.sim_scripttype_childscript, 'moveToConfig', inputInts, Q, [], bytearray(), sim.simx_opmode_blocking)
         complete = False
@@ -71,16 +70,16 @@ class simController():
         _, _, path, _, _ = sim.simxCallScriptFunction(self.simClientID, self.RobotName, sim.sim_scripttype_childscript, 'ikPath', [n_points], pose, [], bytearray(), sim.simx_opmode_blocking)
         return [path[x:x + 6] for x in range(0, len(path), 6)]
 
-    def moveL(self, pose, max_vel, max_acc, max_jerk, is_measuring=False):
+    def moveL(self, pose, max_vel, max_acc, max_jerk):
         # Calculate number of points
         # sim.simxClearIntegerSignal(self.simClientID, "contact", sim.simx_opmode_blocking)
         n_points = 2 #self.getNpoints(pose)
         path = self.getIKpath(pose,n_points)
-        self.moveJPath(path, max_vel, max_acc, max_jerk, is_measuring)
+        self.moveJPath(path, max_vel, max_acc, max_jerk)
 
-    def moveJPath(self, path, max_vel, max_acc, max_jerk, is_measuring):
+    def moveJPath(self, path, max_vel, max_acc, max_jerk):
         for i, Q in enumerate(path):
-            done = self.moveJ(Q, max_vel, max_acc, max_jerk, is_measuring)
+            done = self.moveJ(Q, max_vel, max_acc, max_jerk)
             if done:
                 return True
         return True
@@ -89,67 +88,67 @@ class simController():
         _, objectHandle = sim.simxGetObjectHandle(self.simClientID, objectName, sim.simx_opmode_blocking)
         return objectHandle
 
-    def getObjectPose(self, objctHandle, relativeHandle):
+    def getObjectPose(self, objectName, relativeName):
+        objctHandle = UR5.getObjectHandle(objectName)
+        relativeHandle = UR5.getObjectHandle(relativeName)
+
         _, objectPosition = sim.simxGetObjectPosition(self.simClientID, objctHandle, relativeHandle, sim.simx_opmode_blocking)
-        print(objectPosition)
         _, objectOrientation = sim.simxGetObjectOrientation(self.simClientID ,objctHandle, relativeHandle, sim.simx_opmode_blocking)
-        print(objectOrientation)
-        return np.concatenate((np.asarray(objectPosition), np.asarray(objectOrientation)), axis=0)
+
+        objectTransform = np.eye(4)
+        euler = R.from_euler('zyx', objectOrientation)
+        objectTransform[0:3,0:3] = euler.as_matrix()
+        objectTransform[0:3,3] = objectPosition
+
+        return objectTransform
 
 if __name__ == "__main__":
-    print('Program started')
+    np.set_printoptions(suppress=True) # Supress np scientific notation
     sim.simxFinish(-1)  # just in case, close all opened connections
-    clientID = sim.simxStart('127.0.0.1', 19999, True, True, 5000, 5)  # Connect to CoppeliaSim
+    server_ip = '127.0.0.1'
+    clientID = sim.simxStart(server_ip, 19999, True, True, 5000, 5)  # Connect to CoppeliaSim
 
     if clientID != -1:
-        print('Connected to remote API server')
-
-        # Now try to retrieve data in a blocking fashion (i.e. a service call):
+        print('Connected to remote API server with ip: ', server_ip)
         res, objs = sim.simxGetObjects(clientID, sim.sim_handle_all, sim.simx_opmode_blocking)
-        if res == sim.simx_return_ok:
-            print('Number of objects in the scene: ', len(objs))
-        else:
-            print('Remote API function call returned with error code: ', res)
-
-        time.sleep(2)
-
-        simCont = simController(clientID, "UR5")
-
-        #pose = [0.125, 0.225, 0.5, np.pi, 0, 0]
-        #simController.moveL(pose, 1, 1, 1, 0)
+        if res != sim.simx_return_ok: print('Remote API function call returned with error code: ', res)
 
         dt = 1/50
+        UR5 = simController(clientID, "UR5")
         controller = AdmittanceController(dt, True)
-        ik = ikSolver()
 
         desired_frame = [0.125, 0.225, 0.5, np.pi, 0.0, 0]
+        compliant_frame = desired_frame
         force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        np.set_printoptions(suppress=True)
-        
-        boxHandle = simCont.getObjectHandle("Box")
-        baseHandle = simCont.getObjectHandle("UR5")
-        print(baseHandle)
-        print(boxHandle)
-        boxPose = simCont.getObjectPose(boxHandle, baseHandle)
-        print(boxPose)
+        force = force_torque[0:3]
+
+        boxPose = UR5.getObjectPose("Box", "UR5")
+
+        objectList = np.array(["Box"])
+        objectMesh = STLMesh(objectList[0], boxPose, 1/10)
+
+        field = potentialField(4,1)
 
         timestep = 0
         print("Starting Test Loop")
         while timestep < 5:
             startTime = time.time()
+
+            force = field.computeField(compliant_frame[0:3], force, objectMesh.vertex0, objectMesh.normals)
+            force_torque[0:3] = force
             compliant_frame = controller.computeCompliance(desired_frame, force_torque)
 
-            simCont.moveL(compliant_frame, 1, 1, 1)
+            UR5.moveL(compliant_frame, 1, 1, 1)
 
             # Adding an external force a 1 second
             if timestep > 0.3 and timestep < 0.32 + dt:
                 print("adding external force")
-                force_torque = np.array([0.0,0.0,0.4,0.0,0.0,0.0])
+                force = np.array([-1,0.0,0.0])
 
             # Removing the external force at 4 seconds
-            if timestep > 1.5 and timestep < 1.5 + dt:
+            if timestep > 4 and timestep < 4 + dt:
                 print("no external force")
-                force_torque = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
+                force = np.array([0.0,0.0,0.0])
             timestep += dt
 
             diff = time.time() - startTime

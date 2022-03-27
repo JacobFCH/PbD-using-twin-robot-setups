@@ -30,6 +30,7 @@ class potentialField():
 
         idx = self.find_nearest(obstacle, position)
         obstacle_vector = obstacle[idx] - position
+        print("obstacle point", obstacle[idx], "potition", position, "distance", np.linalg.norm(obstacle_vector))
         angle = self.computeAngle(obstacle_normals[idx], force)
         projection = self.projectForces(force, obstacle_normals[idx], angle)
         
