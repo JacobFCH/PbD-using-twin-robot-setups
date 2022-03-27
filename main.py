@@ -1,3 +1,4 @@
+from calendar import prcal
 import coppeliaSim.sim as sim # Import for simulation environment
 from pythonScripts.admittanceController import AdmittanceController
 from pythonScripts.stlMesh import STLMesh
@@ -135,6 +136,7 @@ if __name__ == "__main__":
             startTime = time.time()
 
             force = field.computeField(compliant_frame[0:3], force, objectMesh.vertex0, objectMesh.normals)
+            print(force)
             force_torque[0:3] = force
             compliant_frame = controller.computeCompliance(desired_frame, force_torque)
 
