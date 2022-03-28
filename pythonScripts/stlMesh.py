@@ -1,3 +1,4 @@
+from traceback import print_tb
 from stl import mesh
 from mpl_toolkits import mplot3d
 from matplotlib import pyplot
@@ -10,16 +11,17 @@ import math
 # Uses numpy-stl library
 
 class STLMesh():
-    def __init__(self, file_name, T, scale):
+    def __init__(self, file_name, T=np.eye(4), scale=1):
         self.stl_mesh = mesh.Mesh.from_file('/home/jacob/gits/super-duper-thesis/stlfiles/' + file_name + ".stl")
+        
+        self.stl_mesh.vectors = self.stl_mesh.vectors * scale
 
         self.stl_mesh.transform(T)
-
-        self.stl_mesh.vectors = self.stl_mesh.vectors * scale
 
         self.vertex0 = self.stl_mesh.v0
         self.vertex1 = self.stl_mesh.v1
         self.vertex2 = self.stl_mesh.v2
+
         self.normals = np.cross(self.vertex1 - self.vertex0, self.vertex2 - self.vertex0)
 
     def plotMesh(self):

@@ -19,8 +19,8 @@ class potentialField():
             return angle
 
     # computes the scalar projection of the force towards the obstacle returning the component of the vector that is in the direction of the obstacle
-    def projectForces(self, u, v, ang):
-        return (-np.cos(ang) * (np.linalg.norm(u)) * (v/np.linalg.norm(v)))
+    def projectForces(self, u, v):
+        return (np.dot(u,v)/np.dot(v,v)) * v
 
     def logisticFunction(self, x):
         return 1 - (self.L/(1 + math.exp(-self.k*(x-self.x0))))
@@ -29,18 +29,23 @@ class potentialField():
     def computeField(self, position, force, obstacle, obstacle_normals):
 
         idx = self.find_nearest(obstacle, position)
-        obstacle_vector = obstacle[idx] - position
-        angle = self.computeAngle(obstacle_normals[idx], force)
-        print(angle, np.linalg.norm(obstacle_vector), obstacle_normals[idx], force)
-        projection = self.projectForces(force, obstacle_normals[idx], angle)
-        #print(angle, projection)
+        obstacle_vector = np.asarray(obstacle[idx] - position)
+        norm = np.asarray(obstacle_normals[idx])
+        force = np.asarray(force)
+        angle = self.computeAngle(norm, force)
+
+        #print(position,obstacle[idx],norm,force,angle)
+        print(np.linalg.norm(obstacle_vector))
+
+        projection = self.projectForces(norm, force)
         
-        if angle >= np.deg2rad(90) and angle <= np.deg2rad(270):
-            squished_forces = projection * self.logisticFunction(np.linalg.norm(obstacle_vector))
+        if angle > np.deg2rad(90) and angle < np.deg2rad(270):
+            squished_forces = np.array([0,0.2,0]) * self.logisticFunction(np.linalg.norm(obstacle_vector))
         else:
             squished_forces = np.array([0,0,0])
-
-        return force + squished_forces
+        
+        print(np.linalg.norm(obstacle_vector), squished_forces)
+        return force - squished_forces
 
 '''
 field = potentialField(4,1)
@@ -51,8 +56,9 @@ position = np.asarray([0,0,0])
 
 force = np.asarray([0,0,0])
 
-obs = np.linspace([4,4,0],[4,-4,0],9)
-norms = np.linspace([3,4,0],[3,-4,0],9) - obs
+obs = np.array([[1,1,0],[2,2,0],[0,2,0]])
+normals = np.cross(obs[0] - obs[1], obs[2] - obs[1])
+print(normals)
 
 from admittanceController import AdmittanceController
 import time

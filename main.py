@@ -70,10 +70,10 @@ class simController():
         _, _, path, _, _ = sim.simxCallScriptFunction(self.simClientID, self.RobotName, sim.sim_scripttype_childscript, 'ikPath', [n_points], pose, [], bytearray(), sim.simx_opmode_blocking)
         return [path[x:x + 6] for x in range(0, len(path), 6)]
 
-    def moveL(self, pose, max_vel, max_acc, max_jerk):
+    def moveL(self, pose, max_vel, max_acc, max_jerk, point_override=2):
         # Calculate number of points
         # sim.simxClearIntegerSignal(self.simClientID, "contact", sim.simx_opmode_blocking)
-        n_points = 2 #self.getNpoints(pose)
+        n_points = point_override #self.getNpoints(pose)
         path = self.getIKpath(pose,n_points)
         self.moveJPath(path, max_vel, max_acc, max_jerk)
 
@@ -115,6 +115,7 @@ if __name__ == "__main__":
 
         dt = 1/50
         UR5 = simController(clientID, "UR5")
+        UR10 = simController(clientID, "UR10")
         controller = AdmittanceController(dt, False)
 
         desired_frame = [0.125, 0.225, 0.5, np.pi, 0.0, 0]
@@ -122,12 +123,15 @@ if __name__ == "__main__":
         force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         force = force_torque[0:3]
 
-        boxPose = UR5.getObjectPose("Box", "UR5")
+        objectPose = UR5.getObjectPose("SCube", "customizableTable")
 
-        objectList = np.array(["Box"])
-        objectMesh = STLMesh(objectList[0], boxPose, 1/100)
+        objectList = np.array(["SCube"])
+        objectMesh = STLMesh(objectList[0], objectPose, 1/1000)
+        #objectMesh.plotMesh()
 
         field = potentialField(4,1)
+
+        #UR10.moveL(compliant_frame, 1, 1, 1, 100)
 
         timestep = 0
         print("Starting Test Loop")
@@ -140,11 +144,12 @@ if __name__ == "__main__":
             compliant_frame = controller.computeCompliance(desired_frame, force_torque)
 
             UR5.moveL(compliant_frame, 1, 1, 1)
+            #UR10.moveL(compliant_frame, 1, 1, 1)
 
             # Adding an external force a 1 second
             if timestep > 0.3 and timestep < 0.32 + dt:
                 print("adding external force")
-                force = np.array([-1,0,0])
+                force = np.array([0,0.2,0])
 
             # Removing the external force at 4 seconds
             if timestep > 4 and timestep < 4 + dt:
@@ -156,10 +161,7 @@ if __name__ == "__main__":
             if(diff < dt):
                 time.sleep(dt-diff)
 
-        # Before closing the connection to CoppeliaSim, make sure that the last command sent out had time to arrive.
-        # You can guarantee this with (for example):
         sim.simxGetPingTime(clientID)
-        # Now close the connection to CoppeliaSim:
         sim.simxFinish(clientID)
     else:
         print('Failed connecting to remote API server')
