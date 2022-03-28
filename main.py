@@ -1,4 +1,3 @@
-from calendar import prcal
 import coppeliaSim.sim as sim # Import for simulation environment
 from pythonScripts.admittanceController import AdmittanceController
 from pythonScripts.stlMesh import STLMesh
@@ -116,7 +115,7 @@ if __name__ == "__main__":
 
         dt = 1/50
         UR5 = simController(clientID, "UR5")
-        controller = AdmittanceController(dt, True)
+        controller = AdmittanceController(dt, False)
 
         desired_frame = [0.125, 0.225, 0.5, np.pi, 0.0, 0]
         compliant_frame = desired_frame
@@ -126,7 +125,7 @@ if __name__ == "__main__":
         boxPose = UR5.getObjectPose("Box", "UR5")
 
         objectList = np.array(["Box"])
-        objectMesh = STLMesh(objectList[0], boxPose, 1/10)
+        objectMesh = STLMesh(objectList[0], boxPose, 1/100)
 
         field = potentialField(4,1)
 
@@ -136,7 +135,7 @@ if __name__ == "__main__":
             startTime = time.time()
 
             force = field.computeField(compliant_frame[0:3], force, objectMesh.vertex0, objectMesh.normals)
-            print(force)
+            #print(force)
             force_torque[0:3] = force
             compliant_frame = controller.computeCompliance(desired_frame, force_torque)
 
@@ -145,7 +144,7 @@ if __name__ == "__main__":
             # Adding an external force a 1 second
             if timestep > 0.3 and timestep < 0.32 + dt:
                 print("adding external force")
-                force = np.array([-1,0.0,0.0])
+                force = np.array([-1,0,0])
 
             # Removing the external force at 4 seconds
             if timestep > 4 and timestep < 4 + dt:

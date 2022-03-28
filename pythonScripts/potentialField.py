@@ -15,7 +15,7 @@ class potentialField():
 
     # Computes the angle between the obstacle vector (od) and the force maginude (fm) vector
     def computeAngle(self, od, fm):
-            angle = np.arccos(np.dot((od).T, fm) / (np.linalg.norm(od) * np.linalg.norm(fm)))
+            angle = np.arccos(np.dot((od), fm) / (np.linalg.norm(od) * np.linalg.norm(fm)))
             return angle
 
     # computes the scalar projection of the force towards the obstacle returning the component of the vector that is in the direction of the obstacle
@@ -30,11 +30,12 @@ class potentialField():
 
         idx = self.find_nearest(obstacle, position)
         obstacle_vector = obstacle[idx] - position
-        #print("obstacle point", obstacle[idx], "potition", position, "distance", np.linalg.norm(obstacle_vector))
         angle = self.computeAngle(obstacle_normals[idx], force)
+        print(angle, np.linalg.norm(obstacle_vector), obstacle_normals[idx], force)
         projection = self.projectForces(force, obstacle_normals[idx], angle)
+        #print(angle, projection)
         
-        if angle > np.deg2rad(90) and angle < np.deg2rad(270):
+        if angle >= np.deg2rad(90) and angle <= np.deg2rad(270):
             squished_forces = projection * self.logisticFunction(np.linalg.norm(obstacle_vector))
         else:
             squished_forces = np.array([0,0,0])
