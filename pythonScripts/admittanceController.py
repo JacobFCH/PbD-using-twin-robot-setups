@@ -8,9 +8,9 @@ class AdmittanceController:
         self.dt = dt
 
         # Positional Parameters
-        self.M_p = np.diag([1.0,1.0,1.0])
-        self.D_p = np.diag([2.0,2.0,2.0])
-        self.K_p = np.diag([1.0,1.0,1.0]) if stiffness else np.diag([0.0,0.0,0.0]) 
+        self.M_p = np.diag([3.0,3.0,3.0])
+        self.D_p = np.diag([13.42,13.42,13.42])
+        self.K_p = np.diag([5.0,5.0,5.0]) if stiffness else np.diag([0.0,0.0,0.0]) 
 
         self.pdd_cd = np.array([0.0,0.0,0.0])
         self.pd_cd = np.array([0.0,0.0,0.0])

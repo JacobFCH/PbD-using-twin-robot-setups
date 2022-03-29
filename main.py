@@ -129,19 +129,19 @@ if __name__ == "__main__":
         objectMesh = STLMesh(objectList[0], objectPose, 1/1000)
         #objectMesh.plotMesh()
 
-        field = potentialField(4,1)
-
-        #UR10.moveL(compliant_frame, 1, 1, 1, 100)
+        field = potentialField(128,0.06)
+        #field.plotLogiFunc()
 
         timestep = 0
         print("Starting Test Loop")
-        while timestep < 5:
+        while timestep < 6:
             startTime = time.time()
 
             force = field.computeField(compliant_frame[0:3], force, objectMesh.vertex0, objectMesh.normals)
             #print(force)
             force_torque[0:3] = force
             compliant_frame = controller.computeCompliance(desired_frame, force_torque)
+            #print(compliant_frame)
 
             UR5.moveL(compliant_frame, 1, 1, 1)
             #UR10.moveL(compliant_frame, 1, 1, 1)
@@ -149,10 +149,10 @@ if __name__ == "__main__":
             # Adding an external force a 1 second
             if timestep > 0.3 and timestep < 0.32 + dt:
                 print("adding external force")
-                force = np.array([0,0.2,0])
+                force = np.array([0,1,0])
 
             # Removing the external force at 4 seconds
-            if timestep > 4 and timestep < 4 + dt:
+            if timestep > 5 and timestep < 5 + dt:
                 print("no external force")
                 force = np.array([0.0,0.0,0.0])
             timestep += dt

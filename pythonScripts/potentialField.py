@@ -25,6 +25,17 @@ class potentialField():
     def logisticFunction(self, x):
         return 1 - (self.L/(1 + math.exp(-self.k*(x-self.x0))))
 
+    def plotLogiFunc(self):
+        import matplotlib.pyplot as plt
+        x = np.linspace(-1, 1, 100)
+        p = []
+        for point in x:
+            p.append(self.logisticFunction(point))
+        plt.xlabel("x") 
+        plt.ylabel("Logi(x)")  
+        plt.plot(x, p) 
+        plt.show()
+
     # Computes the repeling forces of the potential field and adds that to the input force
     def computeField(self, position, force, obstacle, obstacle_normals):
 
@@ -34,17 +45,18 @@ class potentialField():
         force = np.asarray(force)
         angle = self.computeAngle(norm, force)
 
-        #print(position,obstacle[idx],norm,force,angle)
-        print(np.linalg.norm(obstacle_vector))
-
-        projection = self.projectForces(norm, force)
+        projection = self.projectForces(force, norm)
+        #projection = self.projectForces(projection_fn, obstacle_vector)
+        print(projection)
         
+        #print(np.linalg.norm(obstacle_vector), self.logisticFunction(np.linalg.norm(obstacle_vector)))
         if angle > np.deg2rad(90) and angle < np.deg2rad(270):
-            squished_forces = np.array([0,0.2,0]) * self.logisticFunction(np.linalg.norm(obstacle_vector))
+            squished_forces = projection * self.logisticFunction(np.linalg.norm(obstacle_vector))
         else:
             squished_forces = np.array([0,0,0])
-        
-        print(np.linalg.norm(obstacle_vector), squished_forces)
+
+        #print(force - squished_forces)
+
         return force - squished_forces
 
 '''
