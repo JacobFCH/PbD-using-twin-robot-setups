@@ -52,7 +52,6 @@ class AdmittanceController:
 
         self.omega += (omega_d * self.dt)
         omega_h = self.omega * self.dt/2
-
         self.q_epsilon = np.exp(quaternion.quaternion(0,omega_h[0],omega_h[1],omega_h[2])) * self.q_epsilon
 
         self.kEpsilon = self.comp_kEpsilon(self.q_epsilon, self.K_o)
