@@ -22,9 +22,7 @@ if __name__ == '__main__':
 
     dmp_p, dmp_dp, dmp_ddp, dmp_o, dmp_do, dmp_ddo = dmp.rollout(t, tau)  # Generate an output trajectory from the trained DMP
 
-    print(dmp_o)
-
-    dmp.plot2DDMP_Position(demo_p, dmp_p, t , t)
+    #dmp.plot2DDMP_Position(demo_p, dmp_p, t , t)
     dmp.plot2DDMP_Orientation(demo[:, 3:6], quaternion.as_euler_angles(dmp_o), t , t)
 
 
