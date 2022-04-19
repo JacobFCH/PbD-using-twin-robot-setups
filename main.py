@@ -124,6 +124,7 @@ if __name__ == "__main__":
         force = force_torque[0:3]
 
         objectPose = UR5.getObjectPose("SCube", "customizableTable")
+        print(objectPose)
 
         objectList = np.array(["SCube"])
         objectMesh = STLMesh(objectList[0], objectPose, 1/1000)
@@ -132,7 +133,7 @@ if __name__ == "__main__":
         field = potentialField(128,0.06)
         #field.plotLogiFunc()
 
-        timestep = 0
+        timestep = 10
         print("Starting Test Loop")
         while timestep < 6:
             startTime = time.time()

@@ -70,7 +70,7 @@ class DMP():
         self.p += self.dp * dt
 
         # Rotational DMP Step
-        self.ddo = self.alpha_p * (self.beta_p * 2 * np.log(self.go - self.o.conjugate()) - tau*self.do) + quaternion.from_vector_part(fo(x))
+        self.ddo = self.alpha_p * (self.beta_p * 2 * np.log(self.go * self.o.conjugate()) - tau*self.do) + quaternion.from_vector_part(fo(x))
         self.ddo /= tau**2
 
         # Integrate acceleration to obtain velocity
@@ -150,8 +150,16 @@ class DMP():
         d_p = np.gradient(p, axis=0) / dt
         dd_p = np.gradient(d_p, axis=0) / dt
 
-        d_o = np.gradient(quaternion.as_vector_part(o), axis=0) / dt
-        dd_o = np.gradient(d_o, axis=0) / dt
+        d_o = []
+        dd_o = []
+
+        for i in range(len(o) - 1):
+            d_o.append(2 * np.log(o[i + 1] * o[i].conjugate()))
+        for i in range(len(d_o) - 1):
+            dd_o.append(2 * np.log(d_o[i + 1] * d_o[i].conjugate()))
+        d_o = np.asarray(d_o)
+        print(d_o[-1])
+        dd_o = np.asarray(dd_o)
 
         # Integrate canonical system
         x = self.cs.rollout(ts, tau)
@@ -164,8 +172,9 @@ class DMP():
         def forcing_p(j):
             return Dp_inv.dot(tau**2 * dd_p[j] - self.alpha_p * (self.beta_p * (self.gp - p[j]) - tau * d_p[j]))
 
+        # np.log(self.go - o[j].conjugate())
         def forcing_o(j):
-            return Do_inv.dot(np.asarray((tau**2 * dd_o[j])) - np.asarray(self.alpha_o * (self.beta_o * 2 * quaternion.as_vector_part(np.log(self.go - o[j].conjugate())))) - np.asarray((tau * d_o[j])))
+            return Do_inv.dot(quaternion.as_vector_part((tau**2 * dd_o[j]) - (self.alpha_o * (self.beta_o * 2 * (np.log(self.go * o[j].conjugate()))) - (tau * d_o[j]))))
 
         A = np.stack(features(xj) for xj in x)
         f_p = np.stack(forcing_p(j) for j in range(len(ts)))
