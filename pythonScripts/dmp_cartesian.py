@@ -150,16 +150,12 @@ class DMP():
         d_p = np.gradient(p, axis=0) / dt
         dd_p = np.gradient(d_p, axis=0) / dt
 
-        d_o = []
-        dd_o = []
+        d_o = np.empty([len(o),3])
+        dd_o = np.empty([len(o),3])
 
-        for i in range(len(o) - 1):
-            d_o.append(2 * np.log(o[i + 1] * o[i].conjugate()))
-        for i in range(len(d_o) - 1):
-            dd_o.append(2 * np.log(d_o[i + 1] * d_o[i].conjugate()))
-        d_o = np.asarray(d_o)
-        print(d_o[-1])
-        dd_o = np.asarray(dd_o)
+        for i in range(1, len(o) - 1):
+            d_o[i] = quaternion.as_vector_part(2 * np.log(o[i + 1] * o[i].conjugate()))
+        dd_o += d_o * dt
 
         # Integrate canonical system
         x = self.cs.rollout(ts, tau)
@@ -174,7 +170,7 @@ class DMP():
 
         # np.log(self.go - o[j].conjugate())
         def forcing_o(j):
-            return Do_inv.dot(quaternion.as_vector_part((tau**2 * dd_o[j]) - (self.alpha_o * (self.beta_o * 2 * (np.log(self.go * o[j].conjugate()))) - (tau * d_o[j]))))
+            return Do_inv.dot((tau**2 * dd_o[j]) - (self.alpha_o * (self.beta_o * 2 * quaternion.as_vector_part(np.log(self.go * o[j].conjugate()))) - (tau * d_o[j])))
 
         A = np.stack(features(xj) for xj in x)
         f_p = np.stack(forcing_p(j) for j in range(len(ts)))
