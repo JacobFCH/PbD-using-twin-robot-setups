@@ -11,7 +11,7 @@ from scipy.linalg import logm
 
 
 class DMP():
-    def __init__(self, n_bfs=10, alpha=48.0, beta=None, cs_alpha=None, cs=None):
+    def __init__(self, n_bfs=10, alpha=48.0, beta=None, cs_alpha=None, cs=None, environtment_scaling=1):
         self.n_bfs = n_bfs
         self.alpha_p = alpha
         self.beta_p = beta if beta is not None else self.alpha_p / 4
@@ -48,18 +48,17 @@ class DMP():
         self.do = quaternion.from_float_array([0,0,0,0])
         self.o = quaternion.from_float_array([0,0,0,0])
 
+        self.environment_scaling = environtment_scaling
+
         self.reset()
 
     def step(self, x, dt, tau):
+        # -------------------- Positional DMP step --------------------
+
         def fp(xj):
             psi = np.exp(-self.h * (xj - self.c)**2)
             return self.Dp.dot(self.w_p.dot(psi) / psi.sum() * xj)
 
-        def fo(xj):
-            psi = np.exp(-self.h * (xj - self.c)**2)
-            return self.Do.dot(self.w_o.dot(psi) / psi.sum() * xj)
-
-        # Positional DMP step
         self.ddp = self.alpha_p * (self.beta_p * (self.gp - self.p) - tau*self.dp) + fp(x)
         self.ddp /= tau**2
 
@@ -69,7 +68,12 @@ class DMP():
         # Integrate velocity to obtain position
         self.p += self.dp * dt
 
-        # Rotational DMP Step
+        # -------------------- Rotational DMP Step --------------------
+
+        def fo(xj):
+            psi = np.exp(-self.h * (xj - self.c)**2)
+            return self.Do.dot(self.w_o.dot(psi) / psi.sum() * xj)
+
         self.ddo = self.alpha_p * (self.beta_p * 2 * np.log(self.go * self.o.conjugate()) - tau*self.do) + quaternion.from_vector_part(fo(x))
         self.ddo /= tau**2
 
@@ -185,22 +189,21 @@ class DMP():
         self.train_d_p = d_p
         self.train_dd_p = dd_p
 
-
-    def plot2DDMP_Position(self, demo_p,dmp_p, t, tNew):
+    def plot_position(self, demo_p,dmp_p, t, tnew):
         # 2D plot the DMP against the original demonstration
         fig1, axs = plt.subplots(3, 1, sharex=True)
         axs[0].plot(t, demo_p[:, 0], label='Demonstration')
-        axs[0].plot(t, dmp_p[:, 0], label='DMP')
+        axs[0].plot(tnew, dmp_p[:, 0], label='DMP')
         axs[0].set_xlabel('t (s)')
         axs[0].set_ylabel('X (m)')
 
         axs[1].plot(t, demo_p[:, 1], label='Demonstration')
-        axs[1].plot(t, dmp_p[:, 1], label='DMP')
+        axs[1].plot(tnew, dmp_p[:, 1], label='DMP')
         axs[1].set_xlabel('t (s)')
         axs[1].set_ylabel('Y (m)')
 
         axs[2].plot(t, demo_p[:, 2], label='Demonstration')
-        axs[2].plot(tNew, dmp_p[:, 2], label='DMP')
+        axs[2].plot(tnew, dmp_p[:, 2], label='DMP')
         axs[2].set_xlabel('t (s)')
         axs[2].set_ylabel('Z (m)')
         axs[2].legend()
@@ -208,23 +211,23 @@ class DMP():
 
         plt.show()
 
-    def plot2DDMP_Orientation(self, demo_o,dmp_o, t, tNew):
+    def plot_orientation(self, demo_o,dmp_o, t, tnew):
         # 2D plot the DMP against the original demonstration
         fig1, axs = plt.subplots(3, 1, sharex=True)
         axs[0].plot(t, demo_o[:, 0], label='Demonstration')
-        axs[0].plot(t, dmp_o[:, 0], label='DMP')
+        axs[0].plot(tnew, dmp_o[:, 0], label='DMP')
         axs[0].set_xlabel('t (s)')
-        axs[0].set_ylabel('R')
+        #axs[0].set_ylabel('R')
 
         axs[1].plot(t, demo_o[:, 1], label='Demonstration')
-        axs[1].plot(t, dmp_o[:, 1], label='DMP')
+        axs[1].plot(tnew, dmp_o[:, 1], label='DMP')
         axs[1].set_xlabel('t (s)')
-        axs[1].set_ylabel('P')
+        #axs[1].set_ylabel('P')
 
         axs[2].plot(t, demo_o[:, 2], label='Demonstration')
-        axs[2].plot(tNew, dmp_o[:, 2], label='DMP')
+        axs[2].plot(tnew, dmp_o[:, 2], label='DMP')
         axs[2].set_xlabel('t (s)')
-        axs[2].set_ylabel('Y')
+        #axs[2].set_ylabel('Y')
         axs[2].legend()
         fig1.suptitle("Orientation of TCP")
 
