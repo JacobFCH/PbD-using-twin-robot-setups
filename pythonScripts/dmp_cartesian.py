@@ -8,10 +8,11 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from canonical_system import CanonicalSystem
 from scipy.linalg import logm
+from rotodilatation import compute_rotodilation
 
 
 class DMP():
-    def __init__(self, n_bfs=10, alpha=48.0, beta=None, cs_alpha=None, cs=None, environtment_scaling=1):
+    def __init__(self, n_bfs=10, alpha=48.0, beta=None, cs_alpha=None, cs=None):
         self.n_bfs = n_bfs
         self.alpha_p = alpha
         self.beta_p = beta if beta is not None else self.alpha_p / 4
@@ -48,18 +49,20 @@ class DMP():
         self.do = quaternion.from_float_array([0,0,0,0])
         self.o = quaternion.from_float_array([0,0,0,0])
 
-        self.environment_scaling = environtment_scaling
+        self.K = self.alpha_p * self.beta_p
+        self.D = self.alpha_p
 
         self.reset()
 
-    def step(self, x, dt, tau):
+    def step(self, x, dt, tau, S):
         # -------------------- Positional DMP step --------------------
 
         def fp(xj):
             psi = np.exp(-self.h * (xj - self.c)**2)
             return self.Dp.dot(self.w_p.dot(psi) / psi.sum() * xj)
 
-        self.ddp = self.alpha_p * (self.beta_p * (self.gp - self.p) - tau*self.dp) + fp(x)
+        #self.ddp = self.alpha_p * (self.beta_p * (self.gp - self.p) - tau*self.dp) + np.dot(S, fp(x))
+        self.ddp = self.K * (self.gp - self.p) - self.D * (tau * self.dp) + np.dot(S, fp(x))
         self.ddp /= tau**2
 
         # Integrate acceleration to obtain velocity
@@ -89,8 +92,24 @@ class DMP():
 
         return self.p, self.dp, self.ddp, self.o, self.do, self.ddo
 
-    def rollout(self, ts, tau):
+    def rollout(self, ts, tau, environment_scaling):
         self.reset()
+
+        # Compute scaling term S
+        # Compute the new start and goal position
+        p0_prime = self.p0 * environment_scaling
+        gp_prime = self.gp * environment_scaling # + (p0_prime - self.p0)
+
+        # Compute normalized vectors based on the new goal and starting position
+        gp_x0 = self.gp - self.p0
+        gp_prime_x0_prime = gp_prime - p0_prime
+
+        # Compute the rotodialtion mapping the vector gp - p0 to the vector gp_prime - p0_prime
+        S = compute_rotodilation(gp_x0, gp_prime_x0_prime)
+        print(S)
+
+        #self.p0 = p0_prime
+        #self.gp = gp_prime
 
         if np.isscalar(tau):
             tau = np.full_like(ts, tau)
@@ -108,10 +127,8 @@ class DMP():
         ddo = np.array([])
 
         for i in range(n_steps):
-            p[i], dp[i], ddp[i], o_element, do_element, ddo_element = self.step(x[i], dt[i], tau[i])
-            o = np.append(o, o_element)
-            do = np.append(do, do_element)
-            ddo = np.append(ddo, ddo_element)
+            p[i], dp[i], ddp[i], o_element, do_element, ddo_element = self.step(x[i], dt[i], tau[i], S)
+            o, do, ddo = np.append(o, o_element), np.append(do, do_element), np.append(ddo, ddo_element)
 
         return p, dp, ddp, o, do, ddo
 

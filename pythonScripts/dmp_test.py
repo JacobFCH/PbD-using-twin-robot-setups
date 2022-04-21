@@ -7,7 +7,7 @@ if __name__ == '__main__':
     demo = np.loadtxt("demonstration.dat", delimiter=" ", skiprows=1)
 
     N = 50  # Number of filters
-    dmp = DMP(n_bfs=N, alpha=48.0, environtment_scaling=1)
+    dmp = DMP(n_bfs=N, alpha=48.0)
 
     tau = 0.002 * len(demo)
     t = np.arange(0, tau, 0.002)
@@ -31,10 +31,15 @@ if __name__ == '__main__':
 
     # Change the time scaling factor during generalization
     tau /= 1
+    # Declare environmental scaling factor for x, y and z
+    environment_scaling = np.array([1.5, 1.5, 1.5]) #np.array([1.5, 1.5, 1.5])
+    tNew = np.arange(0, tau * 1.5, 0.002)
+    tau *= 1.5
 
-    dmp_p, dmp_dp, dmp_ddp, dmp_o, dmp_do, dmp_ddo = dmp.rollout(t, tau) # Generate an output trajectory from the trained DMP
+    # Generate an output trajectory from the trained DMP
+    dmp_p, dmp_dp, dmp_ddp, dmp_o, dmp_do, dmp_ddo = dmp.rollout(tNew, tau, environment_scaling)
 
-    dmp.plot_position(demo_p, dmp_p, t ,t)
+    dmp.plot_position(demo_p, dmp_p, t ,tNew)
     #dmp.plot_orientation(demo_axis, quaternion.as_rotation_vector(dmp_o), t, t)
 
 
