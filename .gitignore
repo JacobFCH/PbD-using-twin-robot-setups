@@ -1,4 +1,0 @@
-#Ignore remote api binding file
-**/remoteApi.*
-#Ignore Coppelia Launce file
-**/launchCoppelia.*
