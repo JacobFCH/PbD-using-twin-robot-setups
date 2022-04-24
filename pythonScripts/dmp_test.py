@@ -33,8 +33,8 @@ if __name__ == '__main__':
     tau /= 1
     # Declare environmental scaling factor for x, y and z
     environment_scaling = np.array([1.5, 1.5, 1.5]) #np.array([1.5, 1.5, 1.5])
-    tNew = np.arange(0, tau * 1.5, 0.002)
-    tau *= 1.5
+    tNew = np.arange(0, tau * np.max(environment_scaling), 0.002)
+    tau *= np.max(environment_scaling)
 
     # Generate an output trajectory from the trained DMP
     dmp_p, dmp_dp, dmp_ddp, dmp_o, dmp_do, dmp_ddo = dmp.rollout(tNew, tau, environment_scaling)

@@ -106,7 +106,6 @@ class DMP():
 
         # Compute the rotodialtion mapping the vector gp - p0 to the vector gp_prime - p0_prime
         S = compute_rotodilation(gp_x0, gp_prime_x0_prime)
-        print(S)
 
         #self.p0 = p0_prime
         #self.gp = gp_prime
