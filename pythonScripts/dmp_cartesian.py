@@ -10,6 +10,8 @@ from canonical_system import CanonicalSystem
 from scipy.linalg import logm
 from rotodilatation import compute_rotodilation
 
+import time
+
 
 class DMP():
     def __init__(self, n_bfs=10, alpha=48.0, beta=None, cs_alpha=None, cs=None):
@@ -113,23 +115,40 @@ class DMP():
         if np.isscalar(tau):
             tau = np.full_like(ts, tau)
 
-        x = self.cs.rollout(ts, tau)  # Integrate canonical system
-        dt = np.gradient(ts) # Differential time vector
+        #x = self.cs.rollout(ts, tau)  # Integrate canonical system
+        #print(self.cs.rollout(ts[0], tau[0]))
+        dt = 0.002 # np.gradient(ts) # Differential time vector
 
-        n_steps = len(ts)
-        p = np.empty((n_steps, 3))
-        dp = np.empty((n_steps, 3))
-        ddp = np.empty((n_steps, 3))
+        p = np.array([[0., 0., 0.]])
+        dp = np.array([[0., 0., 0.]])
+        ddp = np.array([[0., 0., 0.]])
 
-        o = np.array([])
-        do = np.array([])
-        ddo = np.array([])
+        o = []
+        do = []
+        ddo = []
 
-        for i in range(n_steps):
-            p[i], dp[i], ddp[i], o_element, do_element, ddo_element = self.step(x[i], dt[i], tau[i], S)
-            o, do, ddo = np.append(o, o_element), np.append(do, do_element), np.append(ddo, ddo_element)
+        dist = np.nan_to_num(np.inf)
+        tol = 0.001
+        i = 0
+        tau = 6.972
+        ts = 0
 
-        return p, dp, ddp, o, do, ddo
+        self.cs.reset()
+        while dist > tol:
+            x = self.cs.step(dt, tau)
+            p_element, dp_element, ddp_element, o_element, do_element, ddo_element = self.step(x, dt, tau, S)
+            p, dp, ddp = np.append(p, [p_element], axis=0), np.append(dp, [dp_element], axis=0), np.append(ddp, [ddp_element], axis=0)
+            o, do, ddo = np.append(o, o_element), np.append(do, do_element) , np.append(ddo, ddo_element)
+
+            dist = np.linalg.norm(np.abs(p_element) - np.abs(self.gp))
+            ts += dt
+            i += 1
+
+        #for i in range(n_steps):
+        #    p[i], dp[i], ddp[i], o_element, do_element, ddo_element = self.step(x[i], dt[i], tau[i], S)
+        #    o, do, ddo = np.append(o, o_element), np.append(do, do_element), np.append(ddo, ddo_element)
+
+        return p[1:-1], dp[1:-1], ddp[1:-1], o, do, ddo
 
     def reset(self):
         self.p = self.p0.copy()
