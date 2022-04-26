@@ -54,7 +54,21 @@ class DMP():
         self.K = self.alpha_p * self.beta_p
         self.D = self.alpha_p
 
+        self.dt = 0.002
+
         self.reset()
+    def compute_scaling(self, p0, gp, environment_scaling):
+        # Compute scaling term S
+        # Compute the new start and goal position
+        p0_prime = p0 * environment_scaling
+        gp_prime = gp * environment_scaling
+
+        # Compute normalized vectors based on the new goal and starting position
+        gp_x0 = gp - p0
+        gp_prime_x0_prime = gp_prime - p0_prime
+
+        # Compute the rotodialtion mapping the vector gp - p0 to the vector gp_prime - p0_prime
+        return compute_rotodilation(gp_x0, gp_prime_x0_prime)
 
     def step(self, x, dt, tau, S):
         # -------------------- Positional DMP step --------------------
@@ -94,54 +108,41 @@ class DMP():
 
         return self.p, self.dp, self.ddp, self.o, self.do, self.ddo
 
-    def rollout(self, ts, tau, environment_scaling):
+    def rollout(self, tau, environment_scaling):
         self.reset()
-
-        # Compute scaling term S
-        # Compute the new start and goal position
-        p0_prime = self.p0 * environment_scaling
-        gp_prime = self.gp * environment_scaling # + (p0_prime - self.p0)
-
-        # Compute normalized vectors based on the new goal and starting position
-        gp_x0 = self.gp - self.p0
-        gp_prime_x0_prime = gp_prime - p0_prime
-
-        # Compute the rotodialtion mapping the vector gp - p0 to the vector gp_prime - p0_prime
-        S = compute_rotodilation(gp_x0, gp_prime_x0_prime)
 
         #self.p0 = p0_prime
         #self.gp = gp_prime
 
-        if np.isscalar(tau):
-            tau = np.full_like(ts, tau)
+        #if np.isscalar(tau):
+        #    tau = np.full_like(ts, tau)
 
         #x = self.cs.rollout(ts, tau)  # Integrate canonical system
         #print(self.cs.rollout(ts[0], tau[0]))
-        dt = 0.002 # np.gradient(ts) # Differential time vector
+        #dt = np.gradient(ts) # Differential time vector
 
         p = np.array([[0., 0., 0.]])
         dp = np.array([[0., 0., 0.]])
         ddp = np.array([[0., 0., 0.]])
 
-        o = []
-        do = []
-        ddo = []
+        o = np.array([])
+        do = np.array([])
+        ddo = np.array([])
 
-        dist = np.nan_to_num(np.inf)
+        err = np.nan_to_num(np.inf)
         tol = 0.001
         i = 0
-        tau = 6.972
-        ts = 0
+
+        S = self.compute_scaling(self.p0, self.gp, environment_scaling)
 
         self.cs.reset()
-        while dist > tol:
-            x = self.cs.step(dt, tau)
-            p_element, dp_element, ddp_element, o_element, do_element, ddo_element = self.step(x, dt, tau, S)
+        while err > tol:
+            x = self.cs.step(self.dt, tau)
+            p_element, dp_element, ddp_element, o_element, do_element, ddo_element = self.step(x, self.dt, tau, S)
             p, dp, ddp = np.append(p, [p_element], axis=0), np.append(dp, [dp_element], axis=0), np.append(ddp, [ddp_element], axis=0)
             o, do, ddo = np.append(o, o_element), np.append(do, do_element) , np.append(ddo, ddo_element)
 
-            dist = np.linalg.norm(np.abs(p_element) - np.abs(self.gp))
-            ts += dt
+            err = np.linalg.norm(np.abs(p_element) - np.abs(self.gp))
             i += 1
 
         #for i in range(n_steps):

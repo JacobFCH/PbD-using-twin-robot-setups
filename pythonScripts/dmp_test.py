@@ -29,21 +29,20 @@ if __name__ == '__main__':
 
     dmp.train(demo_p, demo_o, t, tau)
 
-    # Change the time scaling factor during generalization
-    tau /= 1
+    tau = 4.648
     # Declare environmental scaling factor for x, y and z
     environment_scaling = np.array([1.5, 1.5, 1.5])
     tNew = np.arange(0, tau * np.max(environment_scaling), 0.002)
     tau *= np.max(environment_scaling)
 
     # Generate an output trajectory from the trained DMP
-    dmp_p, dmp_dp, dmp_ddp, dmp_o, dmp_do, dmp_ddo = dmp.rollout(tNew, tau, environment_scaling)
+    dmp_p, dmp_dp, dmp_ddp, dmp_o, dmp_do, dmp_ddo = dmp.rollout(tau, environment_scaling)
 
     tp = np.arange(0, len(dmp_p) * 0.002, 0.002)
     to = np.arange(0, len(dmp_o) * 0.002, 0.002)
 
     dmp.plot_position(demo_p, dmp_p, t, tp)
-    dmp.plot_orientation(demo_axis, quaternion.as_rotation_vector(dmp_o), t, to)
+    #dmp.plot_orientation(demo_axis, quaternion.as_rotation_vector(dmp_o), t, to)
 
 
 
