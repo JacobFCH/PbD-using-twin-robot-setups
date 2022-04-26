@@ -71,6 +71,7 @@ class DMP():
         return compute_rotodilation(gp_x0, gp_prime_x0_prime)
 
     def time_coupling(self, Ak, Ak_1, Ba, Ck, Ck_1, Dv, tau, tau_nom, ddp, max_acc, gamma_a, gamma_nom, epsilon):
+        # Based on https://github.com/albindgit/TC_DMP_constrainedVelAcc
         i = Ak > 0
         tau_min_a = np.max(-(Ba[i] * tau ** 2 + Ck[i]) / Ak[i])
         i = Ak < 0
