@@ -16,7 +16,7 @@ if __name__ == '__main__':
     # Fix demonstration, Axis angles switch signs
     demo_axis = demo[:, 0:3]
     for i in range(1, len(demo_axis) - 1):
-        if np.dot(demo_axis[i + 1],demo_axis[i]) < 0:
+        if np.dot(demo_axis[i + 1], demo_axis[i]) < 0:
             demo_axis[i + 1] = -1 * demo_axis[i + 1]
 
     # Convert demonstration orientation to quaternions
@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     tau = 4.648
     # Declare environmental scaling factor for x, y and z
-    environment_scaling = np.array([1.5, 1.5, 1.5])
+    environment_scaling = np.array([1, 1, 1])
     tNew = np.arange(0, tau * np.max(environment_scaling), 0.002)
     tau *= np.max(environment_scaling)
 
@@ -41,8 +41,8 @@ if __name__ == '__main__':
     tp = np.arange(0, len(dmp_p) * 0.002, 0.002)
     to = np.arange(0, len(dmp_o) * 0.002, 0.002)
 
-    dmp.plot(demo_p, dmp_p, t, tp, y_lable=['X[m]', 'Y[m]', 'Z[m]'], title="Position of TCP")
-    #dmp.plot(demo_axis, quaternion.as_rotation_vector(dmp_o), t, to, y_lable=['', '', ''], title="Orientation of TCP")
+    #dmp.plot(demo_p, dmp_p, t, tp, y_lable=['X[m]', 'Y[m]', 'Z[m]'], title="Position of TCP")
+    dmp.plot(demo_axis, quaternion.as_rotation_vector(dmp_o), t, to, y_lable=['', '', ''], title="Orientation of TCP")
 
 
 

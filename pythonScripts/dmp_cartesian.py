@@ -48,7 +48,7 @@ class DMP():
         self.o0 = quaternion.from_float_array([0,0,0,0])
         self.go = quaternion.from_float_array([0,0,0,0])
 
-        self.do = quaternion.from_float_array([0,0,0,0])
+        self.do = np.zeros(3)
         self.o = quaternion.from_float_array([0,0,0,0])
 
         self.K = self.alpha_p * self.beta_p
@@ -57,6 +57,7 @@ class DMP():
         self.dt = 0.002
 
         self.reset()
+
     def compute_scaling(self, p0, gp, environment_scaling):
         # Compute scaling term S
         # Compute the new start and goal position
@@ -123,18 +124,12 @@ class DMP():
             psi = np.exp(-self.h * (xj - self.c)**2)
             return self.Do.dot(self.w_o.dot(psi) / psi.sum() * xj)
 
-        self.ddo = self.alpha_p * (self.beta_p * 2 * np.log(self.go * self.o.conjugate()) - tau*self.do) + quaternion.from_vector_part(fo(x))
+        self.ddo = self.alpha_p * (self.beta_p * 2 * quaternion.as_vector_part(np.log(self.go * self.o.conjugate())) - tau*self.do) + fo(x)
         self.ddo /= tau**2
 
         # Integrate acceleration to obtain velocity
-        self.omega_do += (quaternion.as_vector_part(self.ddo) * tau)
-        omega_h_do = self.omega_do * dt/2
-        self.do = np.exp(quaternion.quaternion(0,omega_h_do[0],omega_h_do[1],omega_h_do[2])) * self.do
-
-        # Integrate velocity to obtain position
-        self.omega_o += (quaternion.as_vector_part(self.do) * tau)
-        omega_h_o = self.omega_do * dt/2
-        self.o = np.exp(quaternion.quaternion(0,omega_h_o[0],omega_h_o[1],omega_h_o[2])) * self.o
+        self.do += self.ddo * dt
+        self.o = np.exp(dt / 2 * quaternion.quaternion(0, *self.do)) * self.o
 
         return self.p, self.dp, self.ddp, self.o, self.do, self.ddo
 
@@ -165,12 +160,13 @@ class DMP():
 
         S = self.compute_scaling(self.p0, self.gp, environment_scaling)
 
-        max_acc = np.array([0.4537, 0.4164, 0.4537])
-        max_vel = np.array([1, 1, 1])
-
         x = self.cs.step(self.dt, tau)
         p_element, dp_element, ddp_element, o_element, do_element, ddo_element = self.step(x, self.dt, tau, S)
         p, dp, ddp = np.append(p, [p_element], axis=0), np.append(dp, [dp_element], axis=0), np.append(ddp, [ddp_element], axis=0)
+        o, do, ddo = np.append(o, o_element), np.append(do, do_element), np.append(ddo, ddo_element)
+
+        max_acc = np.array([0.4537, 0.4164, 0.4537])
+        max_vel = np.array([1, 1, 1])
 
         Ak = np.array([-dp_element, dp_element])
         Ba = np.array([-max_acc, -max_acc])
@@ -214,7 +210,7 @@ class DMP():
         self.ddp = np.zeros(3)
 
         self.o = self.o0
-        self.do = quaternion.from_float_array([0,0,0,0])
+        self.do = np.zeros(3)
         self.ddo = quaternion.from_float_array([0,0,0,0])
 
     def train(self, positions, orientations, ts, tau):
