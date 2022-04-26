@@ -7,7 +7,7 @@ if __name__ == '__main__':
     demo = np.loadtxt("demonstration.dat", delimiter=" ", skiprows=1)
 
     N = 50  # Number of filters
-    dmp = DMP(n_bfs=N, alpha=48.0)
+    dmp = DMP(n_bfs=N, alpha_p=48.0, alpha_0=48)
 
     tau = 0.002 * len(demo)
     t = np.arange(0, tau, 0.002)
@@ -41,8 +41,8 @@ if __name__ == '__main__':
     tp = np.arange(0, len(dmp_p) * 0.002, 0.002)
     to = np.arange(0, len(dmp_o) * 0.002, 0.002)
 
-    dmp.plot_position(demo_p, dmp_p, t, tp)
-    #dmp.plot_orientation(demo_axis, quaternion.as_rotation_vector(dmp_o), t, to)
+    dmp.plot(demo_p, dmp_p, t, tp, y_lable=['X[m]', 'Y[m]', 'Z[m]'], title="Position of TCP")
+    #dmp.plot(demo_axis, quaternion.as_rotation_vector(dmp_o), t, to, y_lable=['', '', ''], title="Orientation of TCP")
 
 
 

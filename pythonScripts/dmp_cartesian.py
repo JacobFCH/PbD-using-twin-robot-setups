@@ -14,12 +14,12 @@ import time
 
 
 class DMP():
-    def __init__(self, n_bfs=10, alpha=48.0, beta=None, cs_alpha=None, cs=None):
+    def __init__(self, n_bfs=10, alpha_p=48.0, alpha_0=48, beta=None, cs_alpha=None, cs=None):
         self.n_bfs = n_bfs
-        self.alpha_p = alpha
+        self.alpha_p = alpha_p
         self.beta_p = beta if beta is not None else self.alpha_p / 4
 
-        self.alpha_o = alpha
+        self.alpha_o = alpha_0
         self.beta_o = beta if beta is not None else self.alpha_o / 4
 
         self.cs = cs if cs is not None else CanonicalSystem(alpha=cs_alpha if cs_alpha is not None else self.alpha_p/2)
@@ -69,6 +69,35 @@ class DMP():
 
         # Compute the rotodialtion mapping the vector gp - p0 to the vector gp_prime - p0_prime
         return compute_rotodilation(gp_x0, gp_prime_x0_prime)
+
+    def time_coupling(self, Ak, Ak_1, Ba, Ck, Ck_1, Dv, tau, tau_nom, ddp, max_acc, gamma_a, gamma_nom, epsilon):
+        i = Ak > 0
+        tau_min_a = np.max(-(Ba[i] * tau ** 2 + Ck[i]) / Ak[i])
+        i = Ak < 0
+        tau_max_a = np.min(-(Ba[i] * tau ** 2 + Ck[i]) / Ak[i])
+
+        tau_min_v = (np.max(- Ak_1 / Dv) - tau) / self.dt
+
+        tau_min_f_1 = np.max(np.sqrt((Ck_1[0] * np.abs(Ak_1[1]) + Ck_1[1] * np.abs(Ak_1[0])) / (
+                    np.abs(Ba[0] * Ak_1[1]) + np.abs(Ba[1] * Ak_1[0]))))
+        tau_min_f = (tau_min_f_1 - tau) / self.dt
+
+        tau_min_nom = (tau_nom - tau) / self.dt
+
+        tau_min = max(tau_max_a, tau_min_a, tau_min_v, tau_min_f, tau_min_nom)
+
+        y_dotdot = ddp / (tau ** 2 * max_acc)
+
+        sigma_y = 0
+        for i in range(len(y_dotdot)):
+            sigma_y += y_dotdot[i] ** 2 / max(1 - y_dotdot[i] ** 2, gamma_a * epsilon)
+        sigma_y *= gamma_a
+
+        tau_hat = gamma_nom * (tau_nom - tau) + tau * sigma_y
+
+        tau_dot = max(min(tau_hat, tau_max_a), tau_min)
+
+        return tau_dot
 
     def step(self, x, dt, tau, S):
         # -------------------- Positional DMP step --------------------
@@ -135,6 +164,24 @@ class DMP():
 
         S = self.compute_scaling(self.p0, self.gp, environment_scaling)
 
+        max_acc = np.array([0.4537, 0.4164, 0.4537])
+        max_vel = np.array([1, 1, 1])
+
+        x = self.cs.step(self.dt, tau)
+        p_element, dp_element, ddp_element, o_element, do_element, ddo_element = self.step(x, self.dt, tau, S)
+        p, dp, ddp = np.append(p, [p_element], axis=0), np.append(dp, [dp_element], axis=0), np.append(ddp, [ddp_element], axis=0)
+
+        Ak = np.array([-dp_element, dp_element])
+        Ba = np.array([-max_acc, -max_acc])
+        Ck = np.array([ddp_element, -ddp_element])
+        Dv = np.array([-max_vel, -max_vel])
+
+        tau_nom = tau
+
+        gamma_a = 0.5
+        gamma_nom = 1
+        epsilon = 0.001
+
         self.cs.reset()
         while err > tol:
             x = self.cs.step(self.dt, tau)
@@ -144,6 +191,15 @@ class DMP():
 
             err = np.linalg.norm(np.abs(p_element) - np.abs(self.gp))
             i += 1
+
+            Ak_1 = np.array([-dp_element, dp_element])
+            Ck_1 = np.array([ddp_element, -ddp_element])
+
+            tau_dot = self.time_coupling(Ak, Ak_1, Ba, Ck, Ck_1, Dv, tau, tau_nom, ddp_element, max_acc, gamma_a, gamma_nom, epsilon)
+            #print(tau_dot)
+
+            Ak = Ak_1
+            Ck = Ck_1
 
         #for i in range(n_steps):
         #    p[i], dp[i], ddp[i], o_element, do_element, ddo_element = self.step(x[i], dt[i], tau[i], S)
@@ -225,46 +281,24 @@ class DMP():
         self.train_d_p = d_p
         self.train_dd_p = dd_p
 
-    def plot_position(self, demo_p,dmp_p, t, tnew):
-        # 2D plot the DMP against the original demonstration
-        fig1, axs = plt.subplots(3, 1, sharex=True)
-        axs[0].plot(t, demo_p[:, 0], label='Demonstration')
-        axs[0].plot(tnew, dmp_p[:, 0], label='DMP')
-        axs[0].set_xlabel('t (s)')
-        axs[0].set_ylabel('X (m)')
-
-        axs[1].plot(t, demo_p[:, 1], label='Demonstration')
-        axs[1].plot(tnew, dmp_p[:, 1], label='DMP')
-        axs[1].set_xlabel('t (s)')
-        axs[1].set_ylabel('Y (m)')
-
-        axs[2].plot(t, demo_p[:, 2], label='Demonstration')
-        axs[2].plot(tnew, dmp_p[:, 2], label='DMP')
-        axs[2].set_xlabel('t (s)')
-        axs[2].set_ylabel('Z (m)')
-        axs[2].legend()
-        fig1.suptitle("Position of TCP")
-
-        plt.show()
-
-    def plot_orientation(self, demo_o,dmp_o, t, tnew):
+    def plot(self, demo_o,dmp_o, t, t_dmp, y_lable=['','',''], title="DMP"):
         # 2D plot the DMP against the original demonstration
         fig1, axs = plt.subplots(3, 1, sharex=True)
         axs[0].plot(t, demo_o[:, 0], label='Demonstration')
-        axs[0].plot(tnew, dmp_o[:, 0], label='DMP')
+        axs[0].plot(t_dmp, dmp_o[:, 0], label='DMP')
         axs[0].set_xlabel('t (s)')
-        #axs[0].set_ylabel('R')
+        axs[0].set_ylabel(y_lable[0])
 
         axs[1].plot(t, demo_o[:, 1], label='Demonstration')
-        axs[1].plot(tnew, dmp_o[:, 1], label='DMP')
+        axs[1].plot(t_dmp, dmp_o[:, 1], label='DMP')
         axs[1].set_xlabel('t (s)')
-        #axs[1].set_ylabel('P')
+        axs[1].set_ylabel(y_lable[1])
 
         axs[2].plot(t, demo_o[:, 2], label='Demonstration')
-        axs[2].plot(tnew, dmp_o[:, 2], label='DMP')
+        axs[2].plot(t_dmp, dmp_o[:, 2], label='DMP')
         axs[2].set_xlabel('t (s)')
-        #axs[2].set_ylabel('Y')
+        axs[2].set_ylabel(y_lable[2])
         axs[2].legend()
-        fig1.suptitle("Orientation of TCP")
+        fig1.suptitle(title)
 
         plt.show()
