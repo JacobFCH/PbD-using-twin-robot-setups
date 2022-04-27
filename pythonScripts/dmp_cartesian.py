@@ -106,10 +106,9 @@ class DMP():
 
         def fp(xj):
             psi = np.exp(-self.h * (xj - self.c)**2)
-            return self.Dp.dot(self.w_p.dot(psi) / psi.sum() * xj)
+            return self.w_p.dot(psi) / psi.sum() * xj
 
-        # self.ddp = self.alpha_p * (self.beta_p * (self.gp - self.p) - tau*self.dp) + np.dot(S, fp(x))
-        self.ddp = self.K * (self.gp - self.p) - self.D * (tau * self.dp) + np.dot(S, fp(x))
+        self.ddp = self.K * (self.gp - self.p) - self.D * (tau * self.dp) - self.K * (self.gp - self.p0) * x + np.dot(S, fp(x))
         self.ddp /= tau**2
 
         # Integrate acceleration to obtain velocity
@@ -136,13 +135,6 @@ class DMP():
     def rollout(self, tau, environment_scaling):
         self.reset()
 
-        #if np.isscalar(tau):
-        #    tau = np.full_like(ts, tau)
-
-        #x = self.cs.rollout(ts, tau)  # Integrate canonical system
-        #print(self.cs.rollout(ts[0], tau[0]))
-        #dt = np.gradient(ts) # Differential time vector
-
         p = np.array([[0., 0., 0.]])
         dp = np.array([[0., 0., 0.]])
         ddp = np.array([[0., 0., 0.]])
@@ -155,7 +147,7 @@ class DMP():
         tol = 0.001
         i = 0
 
-        S, self.p0, self.gp = self.compute_scaling(self.p0, self.gp, environment_scaling)
+        S, self.p, self.gp = self.compute_scaling(self.p0, self.gp, environment_scaling)
 
         x = self.cs.step(self.dt, tau)
         p_element, dp_element, ddp_element, o_element, do_element, ddo_element = self.step(x, self.dt, tau, S)
@@ -223,6 +215,7 @@ class DMP():
         # Initial- and goal positions and orientations
         self.p0 = p[0]
         self.gp = p[-1]
+
         self.o0 = o[0]
         self.go = o[-1]
 
@@ -256,7 +249,8 @@ class DMP():
             return xj * psi / psi.sum()
 
         def forcing_p(j):
-            return Dp_inv.dot(tau**2 * dd_p[j] - self.alpha_p * (self.beta_p * (self.gp - p[j]) - tau * d_p[j]))
+            return tau ** 2 * dd_p[j] - self.alpha_p * (self.beta_p * (self.gp - p[j]) - tau * d_p[j])
+            #return Dp_inv.dot(tau**2 * dd_p[j] - self.alpha_p * (self.beta_p * (self.gp - p[j]) - tau * d_p[j]))
 
         # np.log(self.go - o[j].conjugate())
         def forcing_o(j):

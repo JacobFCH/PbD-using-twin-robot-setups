@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     tau = 4.648
     # Declare environmental scaling factor for x, y and z
-    environment_scaling = 1
+    environment_scaling = 1.5
     tNew = np.arange(0, tau * environment_scaling, 0.002)
     tau *= environment_scaling
 
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     to = np.arange(0, len(dmp_o) * 0.002, 0.002)
 
     dmp.plot(demo_p, dmp_p, t, tp, y_label=['X[m]', 'Y[m]', 'Z[m]'], title="Position of TCP")
-    dmp.plot(demo_axis, quaternion.as_rotation_vector(dmp_o), t, to, y_label=['', '', ''], title="Orientation of TCP")
+    #dmp.plot(demo_axis, quaternion.as_rotation_vector(dmp_o), t, to, y_label=['', '', ''], title="Orientation of TCP")
 
 
 
