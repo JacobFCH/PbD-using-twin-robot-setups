@@ -69,7 +69,7 @@ class DMP():
         gp_prime_x0_prime = gp_prime - p0_prime
 
         # Compute the rotodialtion mapping the vector gp - p0 to the vector gp_prime - p0_prime
-        return compute_rotodilation(gp_x0, gp_prime_x0_prime)
+        return compute_rotodilation(gp_x0, gp_prime_x0_prime), p0_prime, gp_prime
 
     def time_coupling(self, Ak, Ak_1, Ba, Ck, Ck_1, Dv, tau, tau_nom, ddp, max_acc, gamma_a, gamma_nom, epsilon):
         # Based on https://github.com/albindgit/TC_DMP_constrainedVelAcc
@@ -108,7 +108,7 @@ class DMP():
             psi = np.exp(-self.h * (xj - self.c)**2)
             return self.Dp.dot(self.w_p.dot(psi) / psi.sum() * xj)
 
-        #self.ddp = self.alpha_p * (self.beta_p * (self.gp - self.p) - tau*self.dp) + np.dot(S, fp(x))
+        # self.ddp = self.alpha_p * (self.beta_p * (self.gp - self.p) - tau*self.dp) + np.dot(S, fp(x))
         self.ddp = self.K * (self.gp - self.p) - self.D * (tau * self.dp) + np.dot(S, fp(x))
         self.ddp /= tau**2
 
@@ -124,7 +124,7 @@ class DMP():
             psi = np.exp(-self.h * (xj - self.c)**2)
             return self.Do.dot(self.w_o.dot(psi) / psi.sum() * xj)
 
-        self.ddo = self.alpha_p * (self.beta_p * 2 * quaternion.as_vector_part(np.log(self.go * self.o.conjugate())) - tau*self.do) + fo(x)
+        self.ddo = self.alpha_o * (self.beta_o * 2 * np.log(self.go * self.o.conjugate()).vec - tau*self.do) + fo(x)
         self.ddo /= tau**2
 
         # Integrate acceleration to obtain velocity
@@ -135,9 +135,6 @@ class DMP():
 
     def rollout(self, tau, environment_scaling):
         self.reset()
-
-        #self.p0 = p0_prime
-        #self.gp = gp_prime
 
         #if np.isscalar(tau):
         #    tau = np.full_like(ts, tau)
@@ -158,7 +155,7 @@ class DMP():
         tol = 0.001
         i = 0
 
-        S = self.compute_scaling(self.p0, self.gp, environment_scaling)
+        S, self.p0, self.gp = self.compute_scaling(self.p0, self.gp, environment_scaling)
 
         x = self.cs.step(self.dt, tau)
         p_element, dp_element, ddp_element, o_element, do_element, ddo_element = self.step(x, self.dt, tau, S)
@@ -248,7 +245,7 @@ class DMP():
 
         for i in range(1, len(o) - 1):
             d_o[i] = quaternion.as_vector_part(2 * np.log(o[i + 1] * o[i].conjugate()))
-        dd_o += d_o * dt
+        dd_o = np.gradient(d_o, axis=0) / dt
 
         # Integrate canonical system
         x = self.cs.rollout(ts, tau)
@@ -278,23 +275,23 @@ class DMP():
         self.train_d_p = d_p
         self.train_dd_p = dd_p
 
-    def plot(self, demo_o,dmp_o, t, t_dmp, y_lable=['','',''], title="DMP"):
+    def plot(self, demo_o,dmp_o, t, t_dmp, y_label=['', '', ''], title="DMP"):
         # 2D plot the DMP against the original demonstration
         fig1, axs = plt.subplots(3, 1, sharex=True)
         axs[0].plot(t, demo_o[:, 0], label='Demonstration')
         axs[0].plot(t_dmp, dmp_o[:, 0], label='DMP')
         axs[0].set_xlabel('t (s)')
-        axs[0].set_ylabel(y_lable[0])
+        axs[0].set_ylabel(y_label[0])
 
         axs[1].plot(t, demo_o[:, 1], label='Demonstration')
         axs[1].plot(t_dmp, dmp_o[:, 1], label='DMP')
         axs[1].set_xlabel('t (s)')
-        axs[1].set_ylabel(y_lable[1])
+        axs[1].set_ylabel(y_label[1])
 
         axs[2].plot(t, demo_o[:, 2], label='Demonstration')
         axs[2].plot(t_dmp, dmp_o[:, 2], label='DMP')
         axs[2].set_xlabel('t (s)')
-        axs[2].set_ylabel(y_lable[2])
+        axs[2].set_ylabel(y_label[2])
         axs[2].legend()
         fig1.suptitle(title)
 
