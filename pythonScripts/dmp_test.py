@@ -13,7 +13,7 @@ if __name__ == '__main__':
     t = np.arange(0, tau, 0.002)
     demo_p = demo[:, 0:3]
 
-    # Fix demonstration, Axis angles switch signs
+    # Fix demonstration, Axis angles switch signs, Remember to remove this is the new demo looks good
     demo_axis = demo[:, 0:3]
     for i in range(1, len(demo_axis) - 1):
         if np.dot(demo_axis[i + 1], demo_axis[i]) < 0:

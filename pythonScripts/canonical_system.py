@@ -20,12 +20,23 @@ class CanonicalSystem(object):
         tau : float
             Temporal scaling factor.
         """
-        # TODO: Implement the canonical system differential equation, given that you know the values of the following
-        # variables:
-        # self.x, self.alpha, dt, tau
         #self.x += (tau * (self.x * dt)) / (-self.alpha)
         self.x -= self.alpha * self.x * dt / tau
         return self.x
+
+    def predict_step(self, dt, tau):
+        """
+        Predicts the canonical system at next time step t+dt.
+
+        Parameters
+        ----------
+        dt : float
+            Time step.
+        tau : float
+            Temporal scaling factor.
+        """
+        x = self.x - (self.alpha * self.x * dt / tau)
+        return x
 
     def rollout(self, t, tau):
         """

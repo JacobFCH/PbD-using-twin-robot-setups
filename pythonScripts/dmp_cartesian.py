@@ -56,6 +56,9 @@ class DMP():
 
         self.dt = 0.002
 
+        self.max_acc = []
+        self.max_vel = []
+
         self.reset()
 
     def compute_scaling(self, p0, gp, environment_scaling):
@@ -70,6 +73,21 @@ class DMP():
 
         # Compute the rotodialtion mapping the vector gp - p0 to the vector gp_prime - p0_prime
         return compute_rotodilation(gp_x0, gp_prime_x0_prime), p0_prime, gp_prime
+
+    def setup_matrices(self, v, a, tau, S):
+
+        x = self.cs.predict_step(self.dt, tau)
+        _, dp_element, ddp_element, _, _, _ = self.step(x, self.dt, tau, S)
+
+        Ak = np.array([-v, v])
+        Ba = np.array([-self.max_acc, -self.max_acc])
+        Ck = np.array([a, -a])
+        Dv = np.array([-self.max_vel, -self.max_vel])
+
+        Ak_next = np.array([-dp_element, dp_element])
+        Ck_next = np.array([-ddp_element, ddp_element])
+
+        return Ak, Ak_next, Ba, Ck, Ck_next, Dv
 
     def time_coupling(self, Ak, Ak_1, Ba, Ck, Ck_1, Dv, tau, tau_nom, ddp, max_acc, gamma_a, gamma_nom, epsilon):
         # Based on https://github.com/albindgit/TC_DMP_constrainedVelAcc
@@ -149,20 +167,12 @@ class DMP():
 
         S, self.p, self.gp = self.compute_scaling(self.p0, self.gp, environment_scaling)
 
-        x = self.cs.step(self.dt, tau)
-        p_element, dp_element, ddp_element, o_element, do_element, ddo_element = self.step(x, self.dt, tau, S)
-        p, dp, ddp = np.append(p, [p_element], axis=0), np.append(dp, [dp_element], axis=0), np.append(ddp, [ddp_element], axis=0)
-        o, do, ddo = np.append(o, o_element), np.append(do, do_element), np.append(ddo, ddo_element)
-
         max_acc = np.array([0.4537, 0.4164, 0.4537])
         max_vel = np.array([1, 1, 1])
 
-        Ak = np.array([-dp_element, dp_element])
-        Ba = np.array([-max_acc, -max_acc])
-        Ck = np.array([ddp_element, -ddp_element])
-        Dv = np.array([-max_vel, -max_vel])
-
         tau_nom = tau
+        tau_dot = 0
+        tau_k = 0
 
         gamma_a = 0.5
         gamma_nom = 1
@@ -175,17 +185,13 @@ class DMP():
             p, dp, ddp = np.append(p, [p_element], axis=0), np.append(dp, [dp_element], axis=0), np.append(ddp, [ddp_element], axis=0)
             o, do, ddo = np.append(o, o_element), np.append(do, do_element) , np.append(ddo, ddo_element)
 
+            #print(dp_element)
+
             err = np.linalg.norm(np.abs(p_element) - np.abs(self.gp))
             i += 1
 
-            Ak_1 = np.array([-dp_element, dp_element])
-            Ck_1 = np.array([ddp_element, -ddp_element])
-
-            tau_dot = self.time_coupling(Ak, Ak_1, Ba, Ck, Ck_1, Dv, tau, tau_nom, ddp_element, max_acc, gamma_a, gamma_nom, epsilon)
-            #print(tau_dot)
-
-            Ak = Ak_1
-            Ck = Ck_1
+            Ak, Ak_next, Ba, Ck, Ck_next, Dv = self.setup_matrices(dp_element, ddp_element, tau, S)
+            tau_dot = self.time_coupling(Ak, Ak_next, Ba, Ck, Ck_next, Dv, tau, tau_nom, ddp_element, max_acc, gamma_a, gamma_nom, epsilon)
 
         #for i in range(n_steps):
         #    p[i], dp[i], ddp[i], o_element, do_element, ddo_element = self.step(x[i], dt[i], tau[i], S)
