@@ -7,7 +7,7 @@ if __name__ == '__main__':
     demo = np.loadtxt("demonstration.dat", delimiter=" ", skiprows=1)
 
     N = 50  # Number of filters
-    dmp = DMP(n_bfs=N, alpha_p=48.0, alpha_0=600)
+    dmp = DMP(n_bfs=N, alpha_p=48.0, alpha_0=720)
 
     tau = 0.002 * len(demo)
     t = np.arange(0, tau, 0.002)
@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     tau = 4.648
     # Declare environmental scaling factor for x, y and z
-    environment_scaling = 1.5
+    environment_scaling = 1
     tNew = np.arange(0, tau * environment_scaling, 0.002)
     tau *= environment_scaling
 
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     tp = np.arange(0, len(dmp_p) * 0.002, 0.002)
     to = np.arange(0, len(dmp_o) * 0.002, 0.002)
 
-    dmp.plot(demo_p, dmp_p, t, tp, y_label=['X[m]', 'Y[m]', 'Z[m]'], title="Position of TCP")
+    #dmp.plot(demo_p, dmp_p, t, tp, y_label=['X[m]', 'Y[m]', 'Z[m]'], title="Position of TCP")
     #dmp.plot(demo_axis, quaternion.as_rotation_vector(dmp_o), t, to, y_label=['', '', ''], title="Orientation of TCP")
 
 

@@ -14,7 +14,7 @@ import time
 
 
 class DMP():
-    def __init__(self, n_bfs=10, alpha_p=48.0, alpha_0=48, beta=None, cs_alpha=None, cs=None):
+    def __init__(self, n_bfs=10, alpha_p=48, alpha_0=48, beta=None, cs_alpha=None, cs=None):
         self.n_bfs = n_bfs
         self.alpha_p = alpha_p
         self.beta_p = beta if beta is not None else self.alpha_p / 4
@@ -59,6 +59,16 @@ class DMP():
         self.max_acc = []
         self.max_vel = []
 
+        self.S = np.eye(3)
+
+        self.max_acc = np.array([0.4537, 0.4164, 0.4537])
+        self.max_vel = np.array([0.15, 0.15, 0.15])
+        self.gamma_a = 0.5
+        self.gamma_nom = 1
+        self.epsilon = 0.001
+
+        self.tau_nom = 0
+
         self.reset()
 
     def compute_scaling(self, p0, gp, environment_scaling):
@@ -74,59 +84,92 @@ class DMP():
         # Compute the rotodialtion mapping the vector gp - p0 to the vector gp_prime - p0_prime
         return compute_rotodilation(gp_x0, gp_prime_x0_prime), p0_prime, gp_prime
 
-    def setup_matrices(self, v, a, tau, S):
+    def setup_matrices(self, dp, ddp, tau, S):
 
         x = self.cs.predict_step(self.dt, tau)
-        _, dp_element, ddp_element, _, _, _ = self.step(x, self.dt, tau, S)
+        _, dp_next, ddp_next = self.predict_step(x, self.dt, tau, S)
 
-        Ak = np.array([-v, v])
+        Ak = np.array([-dp, dp])
         Ba = np.array([-self.max_acc, -self.max_acc])
-        Ck = np.array([a, -a])
+        Ck = np.array([ddp, -ddp])
         Dv = np.array([-self.max_vel, -self.max_vel])
 
-        Ak_next = np.array([-dp_element, dp_element])
-        Ck_next = np.array([-ddp_element, ddp_element])
+        Ak_next = np.array([-dp_next, dp_next])
+        Ck_next = np.array([-ddp_next, ddp_next])
 
         return Ak, Ak_next, Ba, Ck, Ck_next, Dv
 
-    def time_coupling(self, Ak, Ak_1, Ba, Ck, Ck_1, Dv, tau, tau_nom, ddp, max_acc, gamma_a, gamma_nom, epsilon):
+    def time_coupling(self, tau, dp, ddp):
         # Based on https://github.com/albindgit/TC_DMP_constrainedVelAcc
-        i = Ak > 0
-        tau_min_a = np.max(-(Ba[i] * tau ** 2 + Ck[i]) / Ak[i])
-        i = Ak < 0
-        tau_max_a = np.min(-(Ba[i] * tau ** 2 + Ck[i]) / Ak[i])
 
-        tau_min_v = (np.max(- Ak_1 / Dv) - tau) / self.dt
+        Ak, Ak_next, Ba, Ck, Ck_next, Dv = self.setup_matrices(dp, ddp, tau, self.S)
 
-        tau_min_f_1 = np.max(np.sqrt((Ck_1[0] * np.abs(Ak_1[1]) + Ck_1[1] * np.abs(Ak_1[0])) / (
-                    np.abs(Ba[0] * Ak_1[1]) + np.abs(Ba[1] * Ak_1[0]))))
-        tau_min_f = (tau_min_f_1 - tau) / self.dt
+        tau_min_a = np.max(-(Ba[Ak < 0] * (tau ** 2) + Ck[Ak < 0]) / Ak[Ak < 0])
+        tau_max_a = np.min(-(Ba[Ak > 0] * (tau ** 2) + Ck[Ak > 0]) / Ak[Ak > 0])
 
-        tau_min_nom = (tau_nom - tau) / self.dt
+        tau_min_v = (np.max(- Ak_next / Dv) - tau) / self.dt
+
+        Ais = Ak[Ak < 0]
+        Ajs = Ak[Ak > 0]
+        Bis = Ba[Ak < 0]
+        Bjs = Ba[Ak > 0]
+        Cis = Ck[Ak < 0]
+        Cjs = Ck[Ak > 0]
+        tauNext = -np.inf
+        for i in range(len(Ais)):
+            for j in range(len(Ajs)):
+                num = Cis[i] * np.abs(Ajs[j]) + Cjs[j] * np.abs(Ais[i])
+                den = np.abs(Bis[i] * Ajs[j]) + np.abs(Bjs[j] * Ais[i])
+                if num > 0:
+                        if np.sqrt(num/den) > tauNext:
+                            tauNext = np.sqrt(num/den)
+        tau_min_f = (tauNext - tau) / self.dt
+
+        tau_min_nom = (self.tau_nom - tau) / self.dt
+
+        print(tau_max_a, tau_min_a, tau_min_v, tau_min_f, tau_min_nom)
 
         tau_min = max(tau_max_a, tau_min_a, tau_min_v, tau_min_f, tau_min_nom)
 
-        y_dotdot = ddp / (tau ** 2 * max_acc)
+        y_dotdot = ddp / (tau ** 2 * self.max_acc)
 
         sigma_y = 0
         for i in range(len(y_dotdot)):
-            sigma_y += y_dotdot[i] ** 2 / max(1 - y_dotdot[i] ** 2, gamma_a * epsilon)
-        sigma_y *= gamma_a
+            sigma_y += y_dotdot[i] ** 2 / max(1 - y_dotdot[i] ** 2, self.gamma_a * self.epsilon)
+        sigma_y *= self.gamma_a
 
-        tau_hat = gamma_nom * (tau_nom - tau) + tau * sigma_y
+        tau_hat = self.gamma_nom * (self.tau_nom - tau) + tau * sigma_y
 
         tau_dot = max(min(tau_hat, tau_max_a), tau_min)
 
         return tau_dot
+
+    def predict_step(self, x, dt, tau, S):
+        # -------------------- Positional DMP step --------------------
+
+        def fp(xj):
+            psi = np.exp(-self.h * (xj - self.c) ** 2)
+            return self.w_p.dot(psi) / psi.sum() * xj
+
+        ddp = self.K * (self.gp - self.p) - self.D * (tau * self.dp) - self.K * (self.gp - self.p0) * x + np.dot(S,
+                                                                                                                 fp(x))
+        ddp /= tau ** 2
+
+        # Integrate acceleration to obtain velocity
+        dp = self.dp + self.ddp * dt
+
+        # Integrate velocity to obtain position
+        p = self.p + self.dp * dt
+        return p, dp, ddp
 
     def step(self, x, dt, tau, S):
         # -------------------- Positional DMP step --------------------
 
         def fp(xj):
             psi = np.exp(-self.h * (xj - self.c)**2)
-            return self.w_p.dot(psi) / psi.sum() * xj
+            return self.Dp.dot(self.w_p.dot(psi) / psi.sum() * xj)
 
-        self.ddp = self.K * (self.gp - self.p) - self.D * (tau * self.dp) - self.K * (self.gp - self.p0) * x + np.dot(S, fp(x))
+        self.ddp = self.K * (self.gp - self.p) - self.D * (tau * self.dp) + np.dot(S, fp(x))
         self.ddp /= tau**2
 
         # Integrate acceleration to obtain velocity
@@ -165,37 +208,25 @@ class DMP():
         tol = 0.001
         i = 0
 
-        S, self.p, self.gp = self.compute_scaling(self.p0, self.gp, environment_scaling)
+        self.S, self.p, self.gp = self.compute_scaling(self.p0, self.gp, environment_scaling)
 
-        max_acc = np.array([0.4537, 0.4164, 0.4537])
-        max_vel = np.array([1, 1, 1])
-
-        tau_nom = tau
-        tau_dot = 0
-        tau_k = 0
-
-        gamma_a = 0.5
-        gamma_nom = 1
-        epsilon = 0.001
+        self.tau_nom = tau
+        tau_k = tau
 
         self.cs.reset()
         while err > tol:
             x = self.cs.step(self.dt, tau)
-            p_element, dp_element, ddp_element, o_element, do_element, ddo_element = self.step(x, self.dt, tau, S)
+            p_element, dp_element, ddp_element, o_element, do_element, ddo_element = self.step(x, self.dt, tau, self.S)
             p, dp, ddp = np.append(p, [p_element], axis=0), np.append(dp, [dp_element], axis=0), np.append(ddp, [ddp_element], axis=0)
             o, do, ddo = np.append(o, o_element), np.append(do, do_element) , np.append(ddo, ddo_element)
-
-            #print(dp_element)
 
             err = np.linalg.norm(np.abs(p_element) - np.abs(self.gp))
             i += 1
 
-            Ak, Ak_next, Ba, Ck, Ck_next, Dv = self.setup_matrices(dp_element, ddp_element, tau, S)
-            tau_dot = self.time_coupling(Ak, Ak_next, Ba, Ck, Ck_next, Dv, tau, tau_nom, ddp_element, max_acc, gamma_a, gamma_nom, epsilon)
+            tau_dot = self.time_coupling(tau_k, dp_element, ddp_element)
+            #tau_k += tau_dot * self.dt
 
-        #for i in range(n_steps):
-        #    p[i], dp[i], ddp[i], o_element, do_element, ddo_element = self.step(x[i], dt[i], tau[i], S)
-        #    o, do, ddo = np.append(o, o_element), np.append(do, do_element), np.append(ddo, ddo_element)
+            #print(tau_dot * self.dt)
 
         return p[1:-1], dp[1:-1], ddp[1:-1], o, do, ddo
 
@@ -255,8 +286,7 @@ class DMP():
             return xj * psi / psi.sum()
 
         def forcing_p(j):
-            return tau ** 2 * dd_p[j] - self.alpha_p * (self.beta_p * (self.gp - p[j]) - tau * d_p[j])
-            #return Dp_inv.dot(tau**2 * dd_p[j] - self.alpha_p * (self.beta_p * (self.gp - p[j]) - tau * d_p[j]))
+            return Dp_inv.dot(tau**2 * dd_p[j] - self.alpha_p * (self.beta_p * (self.gp - p[j]) - tau * d_p[j]))
 
         # np.log(self.go - o[j].conjugate())
         def forcing_o(j):

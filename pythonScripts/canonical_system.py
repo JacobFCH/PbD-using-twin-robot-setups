@@ -20,7 +20,6 @@ class CanonicalSystem(object):
         tau : float
             Temporal scaling factor.
         """
-        #self.x += (tau * (self.x * dt)) / (-self.alpha)
         self.x -= self.alpha * self.x * dt / tau
         return self.x
 
