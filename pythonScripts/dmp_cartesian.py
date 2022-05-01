@@ -106,9 +106,7 @@ class DMP():
     def time_coupling(self, tau, dp, ddp):
         # Based on https://github.com/albindgit/TC_DMP_constrainedVelAcc
 
-        Ak, Ak_next, Ba, Ck, Ck_next, Dv = self.setup_matrices(dp, ddp, tau, self.S) # This is the problem
-
-        # The matrices have wrong elements find out what black magick he uses to stop this
+        Ak, Ak_next, Ba, Ck, Ck_next, Dv = self.setup_matrices(dp, ddp, tau, self.S)
 
         tau_min_a = np.max(-(Ba[Ak < 0] * (tau ** 2) + Ck[Ak < 0]) / Ak[Ak < 0])
         tau_max_a = np.min(-(Ba[Ak > 0] * (tau ** 2) + Ck[Ak > 0]) / Ak[Ak > 0])
