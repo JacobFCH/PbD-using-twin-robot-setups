@@ -42,6 +42,8 @@ if __name__ == '__main__':
     to = np.arange(0, len(dmp_o) * 0.002, 0.002)
 
     dmp.plot(demo_p, dmp_p, t, tp, y_label=['X[m]', 'Y[m]', 'Z[m]'], title="Position of TCP", plot_demo=True)
+    dmp.plot(demo_p, dmp_dp, t, tp, y_label=['X[m/s]', 'Y[m/s]', 'Z[m/s]'], title="Valocity of TCP", plot_demo=False)
+    dmp.plot(demo_p, dmp_ddp, t, tp, y_label=['X[m/s^2]', 'Y[m/s^2]', 'Z[m/s^2]'], title="Acceleration of TCP", plot_demo=False)
     #dmp.plot(demo_axis, quaternion.as_rotation_vector(dmp_o), t, to, y_label=['', '', ''], title="Orientation of TCP")
 
 

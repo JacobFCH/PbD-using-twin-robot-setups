@@ -61,11 +61,11 @@ class DMP():
 
         self.S = np.eye(3)
 
-        self.max_acc = np.array([0.1, 0.1, 0.1])
-        self.max_vel = np.array([0.01, 0.01, 0.01])
-        self.gamma_a = 0.5
+        self.max_acc = np.array([1, 1, 1])
+        self.max_vel = np.array([1, 1, 1])
+        self.gamma_a = 1
         self.gamma_nom = 1
-        self.epsilon = 0.001
+        self.epsilon = 0.002
 
         self.tau_nom = 0
 
@@ -89,13 +89,17 @@ class DMP():
         x = self.cs.predict_step(self.dt, tau)
         _, dp_next, ddp_next = self.predict_step(x, self.dt, tau, S)
 
-        Ak = np.array([-dp, dp])
+        # Matrices representing the velocity and acceleration
+        Ak = np.array([-dp, dp]) * tau
+        Ck = np.array([ddp, -ddp]) * tau**2
+
+        # Matrices containing the max acceleration and max velocity
         Ba = np.array([-self.max_acc, -self.max_acc])
-        Ck = np.array([ddp, -ddp])
         Dv = np.array([-self.max_vel, -self.max_vel])
 
-        Ak_next = np.array([-dp_next, dp_next])
-        Ck_next = np.array([-ddp_next, ddp_next])
+        # Matrices representing the velocity and acceleration of the next timestep
+        Ak_next = np.array([-dp_next, dp_next]) * tau
+        Ck_next = np.array([-ddp_next, ddp_next]) * tau**2
 
         return Ak, Ak_next, Ba, Ck, Ck_next, Dv
 
@@ -131,7 +135,7 @@ class DMP():
 
         tau_min = max(tau_min_a, tau_min_v, tau_min_f, tau_min_nom)
 
-        y_dotdot = ddp / (tau ** 2 * self.max_acc)
+        y_dotdot = (ddp * tau**2) / ((tau ** 2) * self.max_acc)
 
         sigma_y = 0
         for i in range(len(y_dotdot)):
@@ -149,10 +153,9 @@ class DMP():
 
         def fp(xj):
             psi = np.exp(-self.h * (xj - self.c) ** 2)
-            return self.w_p.dot(psi) / psi.sum() * xj
+            return self.Dp.dot(self.w_p.dot(psi) / psi.sum() * xj)
 
-        ddp = self.K * (self.gp - self.p) - self.D * (tau * self.dp) - self.K * (self.gp - self.p0) * x + np.dot(S,
-                                                                                                                 fp(x))
+        ddp = self.K * (self.gp - self.p) - self.D * (tau * self.dp) + np.dot(S, fp(x))
         ddp /= tau ** 2
 
         # Integrate acceleration to obtain velocity
@@ -224,8 +227,7 @@ class DMP():
             i += 1
 
             tau_dot = self.time_coupling(tau_k, dp_element, ddp_element)
-            tau_k = tau_k + tau_dot
-            print(tau_k)
+            tau_k = tau_k + tau_dot * self.dt
 
         return p[1:-1], dp[1:-1], ddp[1:-1], o, do, ddo
 
