@@ -205,6 +205,8 @@ class DMP():
         do = np.array([])
         ddo = np.array([])
 
+        phase = np.array([])
+
         err = np.nan_to_num(np.inf)
         tol = 0.001
         i = 0
@@ -217,6 +219,7 @@ class DMP():
         self.cs.reset()
         while err > tol:
             x = self.cs.step(self.dt, tau_k)
+            phase = np.append(phase, x)
             p_element, dp_element, ddp_element, o_element, do_element, ddo_element = self.step(x, self.dt, tau_k, self.S)
             p, dp, ddp = np.append(p, [p_element], axis=0), np.append(dp, [dp_element], axis=0), np.append(ddp, [ddp_element], axis=0)
             o, do, ddo = np.append(o, o_element), np.append(do, do_element) , np.append(ddo, ddo_element)
@@ -227,7 +230,7 @@ class DMP():
             tau_dot = self.time_coupling(tau_k, dp_element, ddp_element)
             tau_k = tau_k + tau_dot * self.dt
 
-        return p[1:-1], dp[1:-1], ddp[1:-1], o, do, ddo
+        return p[1:-1], dp[1:-1], ddp[1:-1], o, do, ddo, phase[0:-1]
 
     def reset(self):
         self.p = self.p0.copy()
@@ -304,21 +307,21 @@ class DMP():
         self.train_d_p = d_p
         self.train_dd_p = dd_p
 
-    def plot(self, demo_o,dmp_o, t, t_dmp, y_label=['', '', ''], title="DMP", plot_demo=True):
+    def plot(self, demo, dmp, t, t_dmp, y_label=['', '', ''], title="DMP", plot_demo=True):
         # 2D plot the DMP against the original demonstration
         fig1, axs = plt.subplots(3, 1, sharex=True)
-        if plot_demo: axs[0].plot(t, demo_o[:, 0], label='Demonstration')
-        axs[0].plot(t_dmp, dmp_o[:, 0], label='DMP')
+        if plot_demo: axs[0].plot(t, demo[:, 0], label='Demonstration')
+        axs[0].plot(t_dmp, dmp[:, 0], label='DMP')
         axs[0].set_xlabel('t (s)')
         axs[0].set_ylabel(y_label[0])
 
-        if plot_demo: axs[1].plot(t, demo_o[:, 1], label='Demonstration')
-        axs[1].plot(t_dmp, dmp_o[:, 1], label='DMP')
+        if plot_demo: axs[1].plot(t, demo[:, 1], label='Demonstration')
+        axs[1].plot(t_dmp, dmp[:, 1], label='DMP')
         axs[1].set_xlabel('t (s)')
         axs[1].set_ylabel(y_label[1])
 
-        if plot_demo: axs[2].plot(t, demo_o[:, 2], label='Demonstration')
-        axs[2].plot(t_dmp, dmp_o[:, 2], label='DMP')
+        if plot_demo: axs[2].plot(t, demo[:, 2], label='Demonstration')
+        axs[2].plot(t_dmp, dmp[:, 2], label='DMP')
         axs[2].set_xlabel('t (s)')
         axs[2].set_ylabel(y_label[2])
         axs[2].legend()
