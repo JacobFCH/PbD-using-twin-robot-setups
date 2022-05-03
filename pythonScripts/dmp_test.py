@@ -31,9 +31,9 @@ if __name__ == '__main__':
 
     tau = 4.648
     # Declare environmental scaling factor for x, y and z
-    environment_scaling = 1
+    environment_scaling = 1.5
     tNew = np.arange(0, tau * environment_scaling, 0.002)
-    tau *= environment_scaling
+    #tau *= environment_scaling
 
     # Generate an output trajectory from the trained DMP
     dmp_p, dmp_dp, dmp_ddp, dmp_o, dmp_do, dmp_ddo, phase = dmp.rollout(tau, environment_scaling)

@@ -61,8 +61,8 @@ class DMP():
 
         self.S = np.eye(3)
 
-        self.max_acc = np.array([1, 1, 1])
-        self.max_vel = np.array([1, 1, 1])
+        self.max_acc = np.array([np.inf, np.inf, np.inf])
+        self.max_vel = np.array([np.inf, np.inf, np.inf])
         self.gamma_a = 1
         self.gamma_nom = 1
         self.epsilon = 0.002
