@@ -150,7 +150,7 @@ if __name__ == "__main__":
             # Adding an external force a 1 second
             if timestep > 0.3 and timestep < 0.32 + dt:
                 print("adding external force")
-                force = np.array([0,1,0])
+                force = np.array([0,0,0])
 
             # Removing the external force at 4 seconds
             if timestep > 5 and timestep < 5 + dt:

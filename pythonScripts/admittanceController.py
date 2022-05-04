@@ -8,8 +8,8 @@ class AdmittanceController:
         self.dt = dt
 
         # Positional Parameters
-        self.M_p = np.diag([3.0,3.0,3.0])
-        self.D_p = np.diag([13.42,13.42,13.42])
+        self.M_p = np.diag([0.7,0.7,0.7]) # 3.0
+        self.D_p = np.diag([10,10,10]) # 13.42
         self.K_p = np.diag([5.0,5.0,5.0]) if stiffness else np.diag([0.0,0.0,0.0]) 
 
         self.pdd_cd = np.array([0.0,0.0,0.0])
@@ -17,8 +17,8 @@ class AdmittanceController:
         self.p_cd = np.array([0.0,0.0,0.0])
 
         # Rotational Parameters
-        self.M_o = np.diag([1.5,1.5,1.5])
-        self.D_o = np.diag([6.5,6.5,6.5]) # 6.48074069840786
+        self.M_o = np.diag([0.001,0.001,0.001])
+        self.D_o = np.diag([0.4,0.4,0.4]) # 6.48074069840786
         self.K_o = np.diag([7.0,7.0,7.0]) if stiffness else np.diag([0.0,0.0,0.0])
 
         self.kEpsilon = np.array([0.0,0.0,0.0])
@@ -28,11 +28,11 @@ class AdmittanceController:
         # Method to compute the K gain on the quaternion
     def comp_kEpsilon(self, q, K_o):
 
-        s = np.array([[0, -q.z, q.y], [q.z, 0, -q.x],[ -q.y, q.x, 0]])
+        s = np.array([[0, -q.z, q.y], [q.z, 0, -q.x], [-q.y, q.x, 0]])
 
         e = q.w * np.eye(3) - s
 
-        kPrime = 2 * np.transpose(e)* K_o
+        kPrime = 2 * np.transpose(e) * K_o
 
         kPrime_oXEpsilon = kPrime @ q.imag
 
@@ -58,10 +58,11 @@ class AdmittanceController:
 
         #eul = R.from_euler('xyz', d_f[3:6])
         d_o = d_f[3:6] #eul.as_rotvec()
-        q_c = quaternion.from_rotation_vector(d_o) * self.q_epsilon
+        q_c = self.q_epsilon * quaternion.from_rotation_vector(d_o)
+        #print(quaternion.as_euler_angles(q_c))
         o_c = quaternion.as_rotation_vector(q_c)
         #r = R.from_rotvec(o_c)
-        #o_c = r.as_rotvec()
+        #o_c = r.as_euler('xyz')
 
         return np.concatenate((p_c, o_c),axis=0)
 

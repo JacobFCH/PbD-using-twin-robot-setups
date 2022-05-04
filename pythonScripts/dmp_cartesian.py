@@ -71,6 +71,10 @@ class DMP():
 
         self.reset()
 
+    def setConstraints(self, vel, acc):
+        self.max_vel = vel
+        self.max_acc = acc
+
     def compute_scaling(self, p0, gp, environment_scaling):
         # Compute scaling term S
         # Compute the new start and goal position
