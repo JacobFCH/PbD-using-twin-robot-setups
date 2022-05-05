@@ -1,10 +1,11 @@
 import numpy as np
 import time
 from admittanceController import AdmittanceController
+from potentialField import potentialField
+from stlMesh import STLMesh
 import rtde_receive
 import rtde_io
 import rtde_control
-from pythonScripts.potentialField import potentialField
 
 if __name__ == '__main__':
 
@@ -24,8 +25,12 @@ if __name__ == '__main__':
     lookaheadtime = 0.1
     gain = 600
 
+    objectPose = np.array([[1.,0.,0.,-0.50],
+                           [0.,1.,0.,0.002],
+                           [0.,0.,1.,0.50000006],
+                           [0.,0.,0.,1.        ]])
+    objectMesh = STLMesh("SCube", objectPose, 1 / 100, 8)
     field = potentialField(128, 0.06)
-    #field.plotLogiFunc()
 
     # Wait for start command, green button
     while True:
@@ -40,12 +45,13 @@ if __name__ == '__main__':
 
         force_torque = rtde_r.getActualTCPForce()
         current_pose = rtde_r.getActualTCPPose()
-        # Insert Potential field computation
-        compliant_frame = controller.computeCompliance(initial_pose, force_torque)
+        post_field_force = field.computeField(current_pose[0:3], force_torque[0:3], objectMesh.v0, objectMesh.normals)
+        post_field_ft = np.array([post_field_force, force_torque[3:6]]).flatten()
+        compliant_frame = controller.computeCompliance(initial_pose, post_field_ft)
         rtde_c.servoL(compliant_frame, velocity, acceleration, dt / 2, lookaheadtime, gain)
 
         # Stop the robot if the red button is pressed
-        if rtde_r.getActualDigitalInputBits() == 128:
+        if rtde_r.getActualDigitalInputBits() == 128 or rtde_r.isProtectiveStopped() or rtde_r.isEmergencyStopped():
             print("Stopping robot")
             break
 

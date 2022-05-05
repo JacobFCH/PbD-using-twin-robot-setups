@@ -45,8 +45,9 @@ class potentialField():
         force = np.asarray(force)
         angle = self.computeAngle(norm, force)
 
+        #print(np.linalg.norm(obstacle_vector))
+
         projection = self.projectForces(force, norm)
-        print(projection)
         
         #print(np.linalg.norm(obstacle_vector), self.logisticFunction(np.linalg.norm(obstacle_vector)))
         if angle > np.deg2rad(90) and angle < np.deg2rad(270):

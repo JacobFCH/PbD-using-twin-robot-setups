@@ -18,6 +18,8 @@ class STLMesh():
         self.stl_mesh.vectors = self.stl_mesh.vectors * scale
         self.stl_mesh.transform(T)
 
+        _, self.cog, _ = self.stl_mesh.get_mass_properties()
+
         # uVectors is the upsampled vectors given by the upsampleFactor, set to one by default
         self.uVectors = self.upsampleMesh(upsampleFactor)
 
@@ -48,7 +50,8 @@ class STLMesh():
             for i in range(sampleMultiplier-1):
                 upsampledMesh = []
                 for j, triangle in enumerate(baseMesh):
-                    longestVertex = np.argmax([np.linalg.norm(triangle[1]-triangle[0]), np.linalg.norm(triangle[1]-triangle[2]), np.linalg.norm(triangle[0]-triangle[2])])
+                    longestVertex = np.argmax([np.linalg.norm(triangle[1]-triangle[0]), np.linalg.norm(triangle[1]
+                                               - triangle[2]), np.linalg.norm(triangle[0]-triangle[2])])
                     if longestVertex == 0:
                         splitPoint = np.linspace(triangle[0], triangle[1], 3)[1]
                         upsampledMesh.append([triangle[0], splitPoint, triangle[2]])
@@ -77,10 +80,10 @@ class STLMesh():
         pl.show()
 
 
-objectList = np.array(["SCube"])
-objectPose = np.array([[1.,0.,0.,0.12499999],
-                       [0.,1.,0.,0.52499998],
-                       [0.,0.,1.,0.50000006],
-                       [0.,0.,0.,1.        ]])
-objectMesh = STLMesh(objectList[0], objectPose, 1, 4)
-objectMesh.plotMesh()
+#objectList = np.array(["SCube"])
+#objectPose = np.array([[1.,0.,0.,0.12499999],
+#                       [0.,1.,0.,0.52499998],
+#                       [0.,0.,1.,0.50000006],
+#                       [0.,0.,0.,1.        ]])
+#objectMesh = STLMesh(objectList[0], objectPose, 1, 6)
+#objectMesh.plotMesh()
