@@ -148,12 +148,12 @@ if __name__ == "__main__":
             #UR10.moveL(compliant_frame, 1, 1, 1)
 
             # Adding an external force a 1 second
-            if timestep > 0.3 and timestep < 0.32 + dt:
+            if 0.3 < timestep < 0.32 + dt:
                 print("adding external force")
                 force = np.array([0,0,0])
 
             # Removing the external force at 4 seconds
-            if timestep > 5 and timestep < 5 + dt:
+            if 5 < timestep < 5 + dt:
                 print("no external force")
                 force = np.array([0.0,0.0,0.0])
             timestep += dt

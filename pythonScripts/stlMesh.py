@@ -1,6 +1,7 @@
 from stl import mesh
-from mpl_toolkits import mplot3d
-from matplotlib import pyplot
+import mpl_toolkits.mplot3d as a3
+import matplotlib.colors as colors
+import pylab as pl
 import numpy as np
 import math
 
@@ -41,11 +42,12 @@ class STLMesh():
         self.normals = np.cross(self.v1 - self.v0, self.v2 - self.v0)
 
     def upsampleMesh(self, sampleMultiplier):
-        upsampledMesh = []
+        baseMesh = self.stl_mesh.vectors
 
         if sampleMultiplier != 1:
             for i in range(sampleMultiplier-1):
-                for j, triangle in enumerate(self.stl_mesh.vectors):
+                upsampledMesh = []
+                for j, triangle in enumerate(baseMesh):
                     longestVertex = np.argmax([np.linalg.norm(triangle[1]-triangle[0]), np.linalg.norm(triangle[1]-triangle[2]), np.linalg.norm(triangle[0]-triangle[2])])
                     if longestVertex == 0:
                         splitPoint = np.linspace(triangle[0], triangle[1], 3)[1]
@@ -59,19 +61,20 @@ class STLMesh():
                         splitPoint = np.linspace(triangle[2], triangle[0], 3)[1]
                         upsampledMesh.append([triangle[0], triangle[1], splitPoint])
                         upsampledMesh.append([splitPoint, triangle[1], triangle[2]])
-
+                baseMesh = upsampledMesh
             return np.asarray(upsampledMesh)
         return self.stl_mesh.vectors
 
     def plotMesh(self):
-        figure = pyplot.figure()
-        axes = mplot3d.Axes3D(figure)
-
-        axes.add_collection3d(mplot3d.art3d.Poly3DCollection(self.stl_mesh.vectors))
-        scale = self.stl_mesh.points.flatten()
-        axes.auto_scale_xyz(scale, scale, scale)
-
-        pyplot.show()
+        ax = a3.Axes3D(pl.figure())
+        for i in range(len(self.uVectors)):
+            tri = a3.art3d.Poly3DCollection([self.uVectors[i]])
+            tri.set_color("white")
+            tri.set_edgecolor('k')
+            ax.add_collection3d(tri)
+        scale = self.points.flatten()
+        ax.auto_scale_xyz(scale, scale, scale)
+        pl.show()
 
 
 objectList = np.array(["SCube"])
@@ -79,5 +82,5 @@ objectPose = np.array([[1.,0.,0.,0.12499999],
                        [0.,1.,0.,0.52499998],
                        [0.,0.,1.,0.50000006],
                        [0.,0.,0.,1.        ]])
-objectMesh = STLMesh(objectList[0], objectPose, 1, 2)
+objectMesh = STLMesh(objectList[0], objectPose, 1, 4)
 objectMesh.plotMesh()

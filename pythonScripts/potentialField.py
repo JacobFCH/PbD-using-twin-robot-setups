@@ -3,9 +3,9 @@ import math
 
 class potentialField():
     def __init__(self, k, x0):
-        self.L = 1 # Max value of the field, kept at one to have a value between 0 and 1
-        self.k = k # Field steepness, how fast does the field change
-        self.x0 = x0 # Sigmoi midtpoint
+        self.L = 1  # Max value of the field, kept at one to have a value between 0 and 1
+        self.k = k  # Field steepness, how fast does the field change
+        self.x0 = x0  # Sigmoid midpoint
 
     # Finds the element of the array that is nearest to the point specified as input
     def find_nearest(self, point_array, point):
@@ -46,7 +46,6 @@ class potentialField():
         angle = self.computeAngle(norm, force)
 
         projection = self.projectForces(force, norm)
-        #projection = self.projectForces(projection_fn, obstacle_vector)
         print(projection)
         
         #print(np.linalg.norm(obstacle_vector), self.logisticFunction(np.linalg.norm(obstacle_vector)))
