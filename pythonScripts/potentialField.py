@@ -37,11 +37,9 @@ class potentialField():
         plt.show()
 
     # Computes the repealing forces of the potential field and adds that to the input force
-    def computeField(self, position, force, obstacle, obstacle_normals):
-
-        idx = self.find_nearest(obstacle, position)
-        obstacle_vector = np.asarray(obstacle[idx] - position)
-        norm = np.asarray(obstacle_normals[idx])
+    def computeForce(self, position, force, nearest_point, nearest_normal):
+        obstacle_vector = np.asarray(nearest_point - position)
+        norm = np.asarray(nearest_normal)
         force = np.asarray(force)
         angle = self.computeAngle(norm, force)
 
@@ -53,3 +51,12 @@ class potentialField():
             squished_forces = np.array([0, 0, 0])
 
         return force - squished_forces
+
+    def computeFieldEffect(self, position, ft, mesh_vertices, mesh_normals):
+
+        idx = self.find_nearest(mesh_vertices, position)
+        post_field_ft = np.zeros(6)
+        post_field_ft[0:3] = self.computeForce(position, ft[0:3], mesh_vertices[idx], mesh_normals[idx])
+        post_field_ft[3:6] = self.computeForce(position, ft[3:6], mesh_vertices[idx], mesh_normals[idx])
+
+        return post_field_ft

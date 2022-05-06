@@ -6,6 +6,10 @@ from scipy.spatial.transform.rotation import Rotation as R
 import numpy as np
 import time
 
+import rtde_receive
+import rtde_io
+import rtde_control
+
 class simController():
 
     def __init__(self, ClientID, RobotName):
@@ -102,6 +106,11 @@ class simController():
 
         return objectTransform
 
+    def setJointAngles(self, joint_angles):
+        for i in range(len(self.jointHandles)):
+            _ = sim.simxSetJointPosition(self.simClientID, self.jointHandles[i], joint_angles[i], sim.simx_opmode_oneshot)
+
+
 if __name__ == "__main__":
     np.set_printoptions(suppress=True) # Supress np scientific notation
     sim.simxFinish(-1)  # just in case, close all opened connections
@@ -113,57 +122,101 @@ if __name__ == "__main__":
         res, objs = sim.simxGetObjects(clientID, sim.sim_handle_all, sim.simx_opmode_blocking)
         if res != sim.simx_return_ok: print('Remote API function call returned with error code: ', res)
 
-        dt = 1/50
+        ip = "192.168.1.111"
+        rtde_r = rtde_receive.RTDEReceiveInterface(ip)
+        rtde_io = rtde_io.RTDEIOInterface(ip)
+        rtde_c = rtde_control.RTDEControlInterface(ip)
+        print("Connected to robot with ip: ", ip)
+
+        dt = 1 / 500
+        controller = AdmittanceController(dt)
+
+        initial_pose = rtde_r.getActualTCPPose()
+
+        velocity = 0.5
+        acceleration = 0.5
+        lookaheadtime = 0.1
+        gain = 600
+
         UR5 = simController(clientID, "UR5")
         UR10 = simController(clientID, "UR10")
-        controller = AdmittanceController(dt, False)
 
-        desired_frame = [0.125, 0.225, 0.5, np.pi, 0.0, 0]
-        compliant_frame = desired_frame
-        force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        force = force_torque[0:3]
+        #desired_frame = [0.125, 0.225, 0.5, np.pi, 0.0, 0]
+        #compliant_frame = desired_frame
+        #force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        #force = force_torque[0:3]
 
-        objectPose = UR5.getObjectPose("SCube", "customizableTable")
-        print(objectPose)
+        #objectPose = UR5.getObjectPose("SCube", "customizableTable")
+        #print(objectPose)
 
-        objectList = np.array(["SCube"])
-        objectMesh = STLMesh(objectList[0], objectPose, 1/1000)
-        #objectMesh.plotMesh()
+        #objectList = np.array(["SCube"])
+        #objectMesh = STLMesh(objectList[0], objectPose, 1/100, 8)
 
-        field = potentialField(128,0.06)
-        #field.plotLogiFunc()
+        #field = potentialField(128, 0.06)
 
-        timestep = 10
-        print("Starting Test Loop")
-        while timestep < 6:
+        objectPose = np.array([[1., 0., 0., -0.50],
+                               [0., 1., 0., 0.002],
+                               [0., 0., 1., 0.50000006],
+                               [0., 0., 0., 1.]])
+        objectMesh = STLMesh("SCube", objectPose, 1 / 1000, 8)
+        field = potentialField(128, 0.06)
+
+        # Wait for start command, green button
+        while True:
+            if rtde_r.getActualDigitalInputBits() == 32:
+                break
+
+        # Zero ft sensor before use
+        rtde_c.zeroFtSensor()
+
+        current_q = np.asarray(rtde_r.getActualQ())
+        print(current_q)
+        UR5.setJointAngles(current_q)
+
+        while True:
             startTime = time.time()
 
-            force = field.computeField(compliant_frame[0:3], force, objectMesh.vertex0, objectMesh.normals)
-            #print(force)
-            force_torque[0:3] = force
-            compliant_frame = controller.computeCompliance(desired_frame, force_torque)
-            #print(compliant_frame)
+            force_torque = rtde_r.getActualTCPForce()
+            current_pose = rtde_r.getActualTCPPose()
+            post_field_force = field.computeFieldEffect(current_pose[0:3], force_torque, objectMesh.v0, objectMesh.normals)
+            compliant_frame = controller.computeCompliance(initial_pose, post_field_force)
+            rtde_c.servoL(compliant_frame, velocity, acceleration, dt / 2, lookaheadtime, gain)
 
-            UR5.moveL(compliant_frame, 1, 1, 1)
-            #UR10.moveL(compliant_frame, 1, 1, 1)
+            current_q = np.asarray(rtde_r.getActualQ())
+            UR5.setJointAngles(current_q)
 
-            # Adding an external force a 1 second
-            if 0.3 < timestep < 0.32 + dt:
-                print("adding external force")
-                force = np.array([0,0,0])
-
-            # Removing the external force at 4 seconds
-            if 5 < timestep < 5 + dt:
-                print("no external force")
-                force = np.array([0.0,0.0,0.0])
-            timestep += dt
+            # Stop the robot if the red button is pressed
+            if rtde_r.getActualDigitalInputBits() == 128 or rtde_r.isProtectiveStopped() or rtde_r.isEmergencyStopped():
+                print("Stopping robot")
+                break
 
             diff = time.time() - startTime
-            if(diff < dt):
-                time.sleep(dt-diff)
+            if diff < dt:
+                time.sleep(dt - diff)
+
+        rtde_c.servoStop()
+
+        #print("Starting Test Loop")
+        #while timestep < 6:
+        #    startTime = time.time()
+
+
+
+
+            #force = field.computeField(compliant_frame[0:3], force, objectMesh.vertex0, objectMesh.normals)
+            #print(force)
+            #force_torque[0:3] = force
+            #compliant_frame = controller.computeCompliance(desired_frame, force_torque)
+            #print(compliant_frame)
+
+            #UR5.moveL(compliant_frame, 1, 1, 1)
+            #UR10.moveL(compliant_frame, 1, 1, 1)
+
+         #   diff = time.time() - startTime
+         #   if(diff < dt):
+         #       time.sleep(dt-diff)
 
         sim.simxGetPingTime(clientID)
         sim.simxFinish(clientID)
     else:
         print('Failed connecting to remote API server')
-    print('Program ended')

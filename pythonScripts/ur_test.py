@@ -45,9 +45,8 @@ if __name__ == '__main__':
 
         force_torque = rtde_r.getActualTCPForce()
         current_pose = rtde_r.getActualTCPPose()
-        post_field_force = field.computeField(current_pose[0:3], force_torque[0:3], objectMesh.v0, objectMesh.normals)
-        post_field_ft = np.array([post_field_force, force_torque[3:6]]).flatten()
-        compliant_frame = controller.computeCompliance(initial_pose, post_field_ft)
+        post_field_force = field.computeFieldEffect(current_pose[0:3], force_torque, objectMesh.v0, objectMesh.normals)
+        compliant_frame = controller.computeCompliance(initial_pose, post_field_force)
         rtde_c.servoL(compliant_frame, velocity, acceleration, dt / 2, lookaheadtime, gain)
 
         # Stop the robot if the red button is pressed
