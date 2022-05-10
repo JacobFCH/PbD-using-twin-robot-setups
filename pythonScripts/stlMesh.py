@@ -18,7 +18,7 @@ class STLMesh():
         self.stl_mesh.vectors = self.stl_mesh.vectors * scale
         self.stl_mesh.transform(T)
 
-        _, self.cog, _ = self.stl_mesh.get_mass_properties()
+        self.center = T[0:3,3]
 
         # uVectors is the upsampled vectors given by the upsampleFactor, set to one by default
         self.uVectors = self.upsampleMesh(upsampleFactor)
@@ -80,10 +80,10 @@ class STLMesh():
         pl.show()
 
 
-#objectList = np.array(["SCube"])
-#objectPose = np.array([[1.,0.,0.,0.12499999],
-#                       [0.,1.,0.,0.52499998],
-#                       [0.,0.,1.,0.50000006],
-#                       [0.,0.,0.,1.        ]])
-#objectMesh = STLMesh(objectList[0], objectPose, 1, 6)
-#objectMesh.plotMesh()
+objectList = np.array(["SmallBin"])
+objectPose = np.array([[1.,0.,0.,0.12499999],
+                       [0.,1.,0.,0.52499998],
+                       [0.,0.,1.,0.50000006],
+                       [0.,0.,0.,1.        ]])
+objectMesh = STLMesh(objectList[0], objectPose, 1, 1)
+objectMesh.plotMesh()
