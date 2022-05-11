@@ -29,8 +29,8 @@ if __name__ == '__main__':
                            [0.,1.,0.,0.002],
                            [0.,0.,1.,0.50000006],
                            [0.,0.,0.,1.        ]])
-    objectMesh = STLMesh("SCube", objectPose, 1 / 100, 8)
-    field = potentialField(128, 0.06)
+    objectMesh = STLMesh("SCube", objectPose, 0.005, 10)
+    field = potentialField(128, 5)
 
     # Wait for start command, green button
     while True:
@@ -46,7 +46,7 @@ if __name__ == '__main__':
         force_torque = rtde_r.getActualTCPForce()
         current_pose = rtde_r.getActualTCPPose()
         post_field_force = field.computeFieldEffect(current_pose[0:3], force_torque, objectMesh.v0, objectMesh.normals)
-        compliant_frame = controller.computeCompliance(initial_pose, post_field_force)
+        compliant_frame = controller.computeCompliance(initial_pose, np.array([post_field_force[0:3], force_torque[3:6]]).flatten())
         rtde_c.servoL(compliant_frame, velocity, acceleration, dt / 2, lookaheadtime, gain)
 
         # Stop the robot if the red button is pressed

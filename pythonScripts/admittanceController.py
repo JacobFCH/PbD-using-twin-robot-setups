@@ -9,7 +9,7 @@ class AdmittanceController:
 
         # Positional Parameters
         self.M_p = np.diag([0.7,0.7,0.7]) # 3.0
-        self.D_p = np.diag([8,8,8]) # 13.42
+        self.D_p = 2*np.diag([8,8,8]) # 13.42
         self.K_p = np.diag([5.0,5.0,5.0]) if stiffness else np.diag([0.0,0.0,0.0]) 
 
         self.pdd_cd = np.array([0.0,0.0,0.0])
@@ -18,7 +18,7 @@ class AdmittanceController:
 
         # Rotational Parameters
         self.M_o = np.diag([0.001,0.001,0.001])
-        self.D_o = np.diag([0.2,0.2,0.2]) # 6.48074069840786
+        self.D_o = 3*np.diag([0.2,0.2,0.2]) # 6.48074069840786
         self.K_o = np.diag([7.0,7.0,7.0]) if stiffness else np.diag([0.0,0.0,0.0])
 
         self.kEpsilon = np.array([0.0,0.0,0.0])

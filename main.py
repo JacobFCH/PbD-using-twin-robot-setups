@@ -139,27 +139,13 @@ if __name__ == "__main__":
         gain = 600
 
         UR5 = simController(clientID, "UR5")
-        UR10 = simController(clientID, "UR10")
-
-        #desired_frame = [0.125, 0.225, 0.5, np.pi, 0.0, 0]
-        #compliant_frame = desired_frame
-        #force_torque = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        #force = force_torque[0:3]
-
-        #objectPose = UR5.getObjectPose("SCube", "customizableTable")
-        #print(objectPose)
-
-        #objectList = np.array(["SCube"])
-        #objectMesh = STLMesh(objectList[0], objectPose, 1/100, 8)
-
-        #field = potentialField(128, 0.06)
 
         objectPose = np.array([[1., 0., 0., -0.50],
                                [0., 1., 0., 0.002],
                                [0., 0., 1., 0.50000006],
                                [0., 0., 0., 1.]])
-        objectMesh = STLMesh("SCube", objectPose, 1 / 1000, 8)
-        field = potentialField(128, 0.06)
+        objectMesh = STLMesh("SCube", objectPose, 0.005, 10)
+        field = potentialField(128)
 
         # Wait for start command, green button
         while True:
@@ -170,7 +156,7 @@ if __name__ == "__main__":
         rtde_c.zeroFtSensor()
 
         current_q = np.asarray(rtde_r.getActualQ())
-        print(current_q)
+        print("Robot Ready", current_q)
         UR5.setJointAngles(current_q)
 
         while True:

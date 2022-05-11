@@ -80,10 +80,10 @@ class STLMesh():
         pl.show()
 
 
-objectList = np.array(["SmallBin"])
-objectPose = np.array([[1.,0.,0.,0.12499999],
-                       [0.,1.,0.,0.52499998],
-                       [0.,0.,1.,0.50000006],
-                       [0.,0.,0.,1.        ]])
-objectMesh = STLMesh(objectList[0], objectPose, 1, 1)
-objectMesh.plotMesh()
+#objectList = np.array(["SmallBin"])
+#objectPose = np.array([[1.,0.,0.,0.12499999],
+#                       [0.,1.,0.,0.52499998],
+#                       [0.,0.,1.,0.50000006],
+#                       [0.,0.,0.,1.        ]])
+#objectMesh = STLMesh(objectList[0], objectPose, 1, 1)
+#objectMesh.plotMesh()
