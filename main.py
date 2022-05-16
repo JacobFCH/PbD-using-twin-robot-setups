@@ -140,12 +140,35 @@ if __name__ == "__main__":
 
         UR5 = simController(clientID, "UR5")
 
-        objectPose = np.array([[1., 0., 0., -0.50],
-                               [0., 1., 0., 0.002],
-                               [0., 0., 1., 0.50000006],
-                               [0., 0., 0., 1.]])
+        #objectPose = np.array([[1., 0., 0., -0.50],
+        #                       [0., 1., 0., 0.002],
+        #                       [0., 0., 1., 0.50000006],
+        #                       [0., 0., 0., 1.]])
+        objectPose = UR5.getObjectPose("SCube", "UR5_Base")
         objectMesh = STLMesh("SCube", objectPose, 0.005, 10)
         field = potentialField(128)
+
+        tool_transform = np.array([
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0.170],
+            [0, 0, 0, 1]
+        ])
+
+        adjoint_matrix = np.zeros([6,6])
+        adjoint_matrix[0:3,0:3] = tool_transform[0:3, 0:3]
+        adjoint_matrix[3:6, 3:6] = tool_transform[0:3, 0:3]
+        adjoint_matrix[3:6,0:3] = tool_transform[0:3, 3] * tool_transform[0:3,0:3]
+
+        '''
+        t = 0
+        while t < 6.5:
+            scale = 2 / (3 - np.cos(2 * t))
+            x = scale * np.cos(t)
+            y = scale * np.sin(2 * t) / 2
+            print(x,y)
+            t += 0.002
+        '''
 
         # Wait for start command, green button
         while True:
@@ -163,9 +186,14 @@ if __name__ == "__main__":
             startTime = time.time()
 
             force_torque = rtde_r.getActualTCPForce()
+
+            ft_tcp_flipped = adjoint_matrix @ np.array([force_torque[3:6], force_torque[0:3]]).flatten()
+            ft_tcp = np.array([ft_tcp_flipped[3:6], ft_tcp_flipped[0:3]]).flatten()
+
             current_pose = rtde_r.getActualTCPPose()
-            post_field_force = field.computeFieldEffect(current_pose[0:3], force_torque, objectMesh.v0, objectMesh.normals)
-            compliant_frame = controller.computeCompliance(initial_pose, post_field_force)
+
+            #post_field_force = field.computeFieldEffect(current_pose[0:3], ft_tcp, objectMesh.v0, objectMesh.normals)
+            compliant_frame = controller.computeCompliance(initial_pose, ft_tcp)
             rtde_c.servoL(compliant_frame, velocity, acceleration, dt / 2, lookaheadtime, gain)
 
             current_q = np.asarray(rtde_r.getActualQ())

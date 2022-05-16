@@ -45,8 +45,8 @@ class potentialField():
 
         projection = self.projectForces(force, norm)
 
-        logicFuncs = np.array([self.logisticFunction(np.linalg.norm(obstacle_vector), 0.09),
-                               self.logisticFunction(np.linalg.norm(obstacle_vector), 0.09),
+        logicFuncs = np.array([self.logisticFunction(np.linalg.norm(obstacle_vector), 0.06),
+                               self.logisticFunction(np.linalg.norm(obstacle_vector), 0.06),
                                self.logisticFunction(np.linalg.norm(obstacle_vector), 0.06)])
 
         if np.deg2rad(90) < angle < np.deg2rad(270):
