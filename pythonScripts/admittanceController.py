@@ -39,13 +39,13 @@ class AdmittanceController:
         return kPrime_oXEpsilon
 
     # Method for computing the compliant orientation
-    def computeCompliance(self, d_f, f_t):
+    def computeCompliance(self, d_f, f_t, rotation):
         # Compute Positional Compliance
         self.pdd_cd = np.matmul(f_t[0:3] - (self.pd_cd @ self.D_p) - (self.p_cd @ self.K_p), np.linalg.pinv(self.M_p))
 
         self.pd_cd += (self.pdd_cd * self.dt)
         self.p_cd += (self.pd_cd * self.dt)
-        p_c = d_f[0:3] + self.p_cd
+        p_c = d_f[0:3] + (self.p_cd @ rotation)
 
         # Compute Rotational Complaince
         omega_d = np.matmul(np.linalg.inv(self.M_o), f_t[3:6] - (self.omega @ self.D_o) - self.kEpsilon)
@@ -57,7 +57,8 @@ class AdmittanceController:
         self.kEpsilon = self.comp_kEpsilon(self.q_epsilon, self.K_o)
 
         d_o = d_f[3:6]
-        q_c = self.q_epsilon * quaternion.from_rotation_vector(d_o)
+        q_base = quaternion.from_rotation_matrix(rotation) * self.q_epsilon
+        q_c = q_base * quaternion.from_rotation_vector(d_o)
         o_c = quaternion.as_rotation_vector(q_c)
 
         return np.concatenate((p_c, o_c),axis=0)

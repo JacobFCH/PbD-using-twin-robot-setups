@@ -3,6 +3,7 @@ from pythonScripts.admittanceController import AdmittanceController
 from pythonScripts.stlMesh import STLMesh
 from pythonScripts.potentialField import potentialField
 from scipy.spatial.transform.rotation import Rotation as R
+import scipy
 import numpy as np
 import time
 
@@ -148,6 +149,7 @@ if __name__ == "__main__":
         objectMesh = STLMesh("SCube", objectPose, 0.005, 10)
         field = potentialField(128)
 
+        # Transform the forces from the sensor frame to the tool frame at the tip of the gripper
         tool_transform = np.array([
             [1, 0, 0, 0],
             [0, 1, 0, 0],
@@ -155,22 +157,15 @@ if __name__ == "__main__":
             [0, 0, 0, 1]
         ])
 
+        # Create the adjoint matrix based on
+        # https://modernrobotics.northwestern.edu/nu-gm-book-resource/3-3-2-twists-part-2-of-2/#department
         adjoint_matrix = np.zeros([6,6])
         adjoint_matrix[0:3,0:3] = tool_transform[0:3, 0:3]
         adjoint_matrix[3:6, 3:6] = tool_transform[0:3, 0:3]
         adjoint_matrix[3:6,0:3] = tool_transform[0:3, 3] * tool_transform[0:3,0:3]
 
-        '''
-        t = 0
-        while t < 6.5:
-            scale = 2 / (3 - np.cos(2 * t))
-            x = scale * np.cos(t)
-            y = scale * np.sin(2 * t) / 2
-            print(x,y)
-            t += 0.002
-        '''
-
         # Wait for start command, green button
+        print("Robot Ready")
         while True:
             if rtde_r.getActualDigitalInputBits() == 32:
                 break
@@ -179,22 +174,29 @@ if __name__ == "__main__":
         rtde_c.zeroFtSensor()
 
         current_q = np.asarray(rtde_r.getActualQ())
-        print("Robot Ready", current_q)
+        print("Current Pose:", current_q)
         UR5.setJointAngles(current_q)
 
         while True:
             startTime = time.time()
 
             force_torque = rtde_r.getActualTCPForce()
-
-            ft_tcp_flipped = adjoint_matrix @ np.array([force_torque[3:6], force_torque[0:3]]).flatten()
-            ft_tcp = np.array([ft_tcp_flipped[3:6], ft_tcp_flipped[0:3]]).flatten()
-
             current_pose = rtde_r.getActualTCPPose()
 
+            # Rotate the force in the tcp to the orientation of the tcp
+            rot = R.from_rotvec(current_pose[3:6])
+            rMatrix = rot.as_matrix()
+            invMatrix = scipy.linalg.inv(rMatrix)
+            force_tcp = invMatrix @ force_torque[0:3]
+            torque_tcp = invMatrix @ force_torque[3:6]
+
+            wrench_transform = adjoint_matrix @ np.array([torque_tcp, force_tcp]).flatten()
+            ft_tcp = np.array([wrench_transform[3:6], wrench_transform[0:3]]).flatten()
+
             #post_field_force = field.computeFieldEffect(current_pose[0:3], ft_tcp, objectMesh.v0, objectMesh.normals)
-            compliant_frame = controller.computeCompliance(initial_pose, ft_tcp)
-            rtde_c.servoL(compliant_frame, velocity, acceleration, dt / 2, lookaheadtime, gain)
+            compliant_frame = controller.computeCompliance(initial_pose, ft_tcp, rMatrix)
+             print(compliant_frame)
+            #rtde_c.servoL(compliant_frame, velocity, acceleration, dt / 2, lookaheadtime, gain)
 
             current_q = np.asarray(rtde_r.getActualQ())
             UR5.setJointAngles(current_q)
@@ -209,26 +211,6 @@ if __name__ == "__main__":
                 time.sleep(dt - diff)
 
         rtde_c.servoStop()
-
-        #print("Starting Test Loop")
-        #while timestep < 6:
-        #    startTime = time.time()
-
-
-
-
-            #force = field.computeField(compliant_frame[0:3], force, objectMesh.vertex0, objectMesh.normals)
-            #print(force)
-            #force_torque[0:3] = force
-            #compliant_frame = controller.computeCompliance(desired_frame, force_torque)
-            #print(compliant_frame)
-
-            #UR5.moveL(compliant_frame, 1, 1, 1)
-            #UR10.moveL(compliant_frame, 1, 1, 1)
-
-         #   diff = time.time() - startTime
-         #   if(diff < dt):
-         #       time.sleep(dt-diff)
 
         sim.simxGetPingTime(clientID)
         sim.simxFinish(clientID)
