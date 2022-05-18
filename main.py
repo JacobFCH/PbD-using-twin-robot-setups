@@ -162,7 +162,10 @@ if __name__ == "__main__":
         adjoint_matrix = np.zeros([6,6])
         adjoint_matrix[0:3,0:3] = tool_transform[0:3, 0:3]
         adjoint_matrix[3:6, 3:6] = tool_transform[0:3, 0:3]
-        adjoint_matrix[3:6,0:3] = tool_transform[0:3, 3] * tool_transform[0:3,0:3]
+        p_skew = np.array([[0, -tool_transform[2, 3], tool_transform[1, 3]],
+                           [tool_transform[2, 3], 0, -tool_transform[0, 3]],
+                           [-tool_transform[1, 3], tool_transform[0, 3], 0]])
+        adjoint_matrix[3:6,0:3] = p_skew @ tool_transform[0:3,0:3]
 
         # Wait for start command, green button
         print("Robot Ready")
@@ -190,13 +193,12 @@ if __name__ == "__main__":
             force_tcp = invMatrix @ force_torque[0:3]
             torque_tcp = invMatrix @ force_torque[3:6]
 
-            wrench_transform = adjoint_matrix @ np.array([torque_tcp, force_tcp]).flatten()
+            wrench_transform = adjoint_matrix.T @ np.array([torque_tcp, force_tcp]).flatten()
             ft_tcp = np.array([wrench_transform[3:6], wrench_transform[0:3]]).flatten()
 
             #post_field_force = field.computeFieldEffect(current_pose[0:3], ft_tcp, objectMesh.v0, objectMesh.normals)
             compliant_frame = controller.computeCompliance(initial_pose, ft_tcp, rMatrix)
-             print(compliant_frame)
-            #rtde_c.servoL(compliant_frame, velocity, acceleration, dt / 2, lookaheadtime, gain)
+            rtde_c.servoL(compliant_frame, velocity, acceleration, dt / 2, lookaheadtime, gain)
 
             current_q = np.asarray(rtde_r.getActualQ())
             UR5.setJointAngles(current_q)

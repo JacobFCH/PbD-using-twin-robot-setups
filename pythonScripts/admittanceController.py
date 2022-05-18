@@ -4,12 +4,12 @@ import numpy as np
 import quaternion
 
 class AdmittanceController:
-    def __init__(self, dt = 1/500, stiffness=False):
+    def __init__(self, dt=1/500, stiffness=False):
         self.dt = dt
 
         # Positional Parameters
-        self.M_p = np.diag([0.7,0.7,0.7]) # 3.0
-        self.D_p = 2*np.diag([8,8,8]) # 13.42
+        self.M_p = np.diag([0.7,0.7,0.7])
+        self.D_p = np.diag([16,16,16])
         self.K_p = np.diag([5.0,5.0,5.0]) if stiffness else np.diag([0.0,0.0,0.0]) 
 
         self.pdd_cd = np.array([0.0,0.0,0.0])
@@ -18,7 +18,7 @@ class AdmittanceController:
 
         # Rotational Parameters
         self.M_o = np.diag([0.001,0.001,0.001])
-        self.D_o = 3*np.diag([0.2,0.2,0.2]) # 6.48074069840786
+        self.D_o = np.diag([0.8, 0.8, 0.2])
         self.K_o = np.diag([7.0,7.0,7.0]) if stiffness else np.diag([0.0,0.0,0.0])
 
         self.kEpsilon = np.array([0.0,0.0,0.0])
@@ -45,7 +45,7 @@ class AdmittanceController:
 
         self.pd_cd += (self.pdd_cd * self.dt)
         self.p_cd += (self.pd_cd * self.dt)
-        p_c = d_f[0:3] + (self.p_cd @ rotation)
+        p_c = d_f[0:3] + (rotation @ self.p_cd)
 
         # Compute Rotational Complaince
         omega_d = np.matmul(np.linalg.inv(self.M_o), f_t[3:6] - (self.omega @ self.D_o) - self.kEpsilon)
@@ -57,8 +57,7 @@ class AdmittanceController:
         self.kEpsilon = self.comp_kEpsilon(self.q_epsilon, self.K_o)
 
         d_o = d_f[3:6]
-        q_base = quaternion.from_rotation_matrix(rotation) * self.q_epsilon
-        q_c = q_base * quaternion.from_rotation_vector(d_o)
+        q_c = quaternion.from_rotation_vector(d_o) * self.q_epsilon
         o_c = quaternion.as_rotation_vector(q_c)
 
         return np.concatenate((p_c, o_c),axis=0)
