@@ -33,7 +33,7 @@ if __name__ == '__main__':
     #objectMesh = STLMesh("SCube", objectPose, 0.005, 10)
     #field = potentialField(128, 5)
 
-    testTrajectory = TrajectoryGenerator(0.15)
+    testTrajectory = TrajectoryGenerator(0.15, 0.30)
 
     # Wait for start command, green button
     print("Robot Waiting")

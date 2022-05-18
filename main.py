@@ -1,7 +1,8 @@
-import coppeliaSim.sim as sim # Import for simulation environment
+import coppeliaSim.sim as sim  # Import for simulation environment
 from pythonScripts.admittanceController import AdmittanceController
 from pythonScripts.stlMesh import STLMesh
 from pythonScripts.potentialField import potentialField
+from pythonScripts.trajectory_generator import TrajectoryGenerator
 from scipy.spatial.transform.rotation import Rotation as R
 import scipy
 import numpy as np
@@ -11,7 +12,11 @@ import rtde_receive
 import rtde_io
 import rtde_control
 
-class simController():
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+
+class SimController():
 
     def __init__(self, ClientID, RobotName):
         self.simClientID = ClientID
@@ -139,7 +144,7 @@ if __name__ == "__main__":
         lookaheadtime = 0.1
         gain = 600
 
-        UR5 = simController(clientID, "UR5")
+        UR5 = SimController(clientID, "UR5")
 
         #objectPose = np.array([[1., 0., 0., -0.50],
         #                       [0., 1., 0., 0.002],
@@ -171,6 +176,7 @@ if __name__ == "__main__":
         print("Robot Ready")
         while True:
             if rtde_r.getActualDigitalInputBits() == 32:
+                # rtde_c.teachMode() # enable this for teach mode tests
                 break
 
         # Zero ft sensor before use
@@ -180,11 +186,26 @@ if __name__ == "__main__":
         print("Current Pose:", current_q)
         UR5.setJointAngles(current_q)
 
+        recording = []
+        is_recording = False
+        start_rec_time = 0
+        stop_rec_time = 0
+
         while True:
             startTime = time.time()
 
+            if rtde_r.getActualDigitalInputBits() == 64:
+                start_rec_time = time.time()
+                is_recording = True
+            if rtde_r.getActualDigitalInputBits() == 16:
+                stop_rec_time = time.time()
+                is_recording = False
+
             force_torque = rtde_r.getActualTCPForce()
             current_pose = rtde_r.getActualTCPPose()
+
+            if is_recording:
+                recording.append(current_pose)
 
             # Rotate the force in the tcp to the orientation of the tcp
             rot = R.from_rotvec(current_pose[3:6])
@@ -212,7 +233,25 @@ if __name__ == "__main__":
             if diff < dt:
                 time.sleep(dt - diff)
 
+        # rtde_c.endTeachMode() # Enable this for teach mode tests
         rtde_c.servoStop()
+
+        testTrajectory = TrajectoryGenerator(0.15, -0.01)
+        recording = np.asarray(recording)
+
+        print("Duration: ", stop_rec_time - start_rec_time)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot(testTrajectory.testTrajectory[:,0], testTrajectory.testTrajectory[:,1], testTrajectory.testTrajectory[:,2])
+        ax.plot(recording[:,0], recording[:,1], recording[:,2])
+        plt.show()
+
+        print("Computing Dynamical Time Warping")
+        x_dtw = testTrajectory.dtw(recording[:, 0], testTrajectory.testTrajectory[:, 0])
+        y_dtw = testTrajectory.dtw(recording[:, 1], testTrajectory.testTrajectory[:, 1])
+        z_dtw = testTrajectory.dtw(recording[:, 2], testTrajectory.testTrajectory[:, 2])
+        print(x_dtw, y_dtw, z_dtw)
 
         sim.simxGetPingTime(clientID)
         sim.simxFinish(clientID)
