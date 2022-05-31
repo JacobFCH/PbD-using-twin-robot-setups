@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from tslearn.metrics import dtw, dtw_path
 
 
 class TrajectoryGenerator:
@@ -55,3 +56,23 @@ class TrajectoryGenerator:
     def plotTrajectory(self):
         plt.plot(self.testTrajectory[:, 0], self.testTrajectory[:, 1])
         plt.show()
+
+testTrajectory = TrajectoryGenerator(0.15, -0.01)
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.plot(testTrajectory.testTrajectory[:,0], testTrajectory.testTrajectory[:,1], testTrajectory.testTrajectory[:,2])
+ax.set_xlabel('X[m]')
+ax.set_ylabel('Y[m]')
+ax.set_zlabel('Z[m]')
+#plt.show()
+
+a = np.array([[1,1,1],[1,2,1],[1,1,3],[1,1,1],[1,1,1],[1,1,1]])
+b = np.array([[1,2,1],[1,1,1],[1,2,1]])
+
+dtw_score = dtw(a, b)
+
+x_dtw = testTrajectory.dtw(a[:,0],b[:,0])
+y_dtw = testTrajectory.dtw(a[:,1],b[:,1])
+z_dtw = testTrajectory.dtw(a[:,2],b[:,2])
+
+print(dtw_score, x_dtw, y_dtw, z_dtw)

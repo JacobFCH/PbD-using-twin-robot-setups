@@ -6,6 +6,7 @@ mpl.use('TkAgg') #For interactive plots https://stackoverflow.com/questions/4984
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+
 from canonical_system import CanonicalSystem
 from scipy.linalg import logm
 from rotodilatation import compute_rotodilation
@@ -56,16 +57,13 @@ class DMP():
 
         self.dt = 0.002
 
-        self.max_acc = []
-        self.max_vel = []
-
         self.S = np.eye(3)
 
         self.max_acc = np.array([np.inf, np.inf, np.inf])
         self.max_vel = np.array([np.inf, np.inf, np.inf])
         self.gamma_a = 1
         self.gamma_nom = 1
-        self.epsilon = 0.002
+        self.epsilon = 0.001
 
         self.tau_nom = 0
 
@@ -312,23 +310,48 @@ class DMP():
         self.train_dd_p = dd_p
 
     def plot(self, demo, dmp, t, t_dmp, y_label=['', '', ''], title="DMP", plot_demo=True):
+
+        max_acc = np.repeat(0.2, len(t_dmp))
+        min_acc = np.repeat(-0.2, len(t_dmp))
+
         # 2D plot the DMP against the original demonstration
         fig1, axs = plt.subplots(3, 1, sharex=True)
-        if plot_demo: axs[0].plot(t, demo[:, 0], label='Demonstration')
-        axs[0].plot(t_dmp, dmp[:, 0], label='DMP')
+        axs[0].plot(t_dmp, dmp[:, 0], label='Constrained DMP')
+        if plot_demo: axs[0].plot(t, demo[:, 0], '--', label='Unconstrained DMP')
+        axs[0].plot(t_dmp, min_acc, '--', label='Min velocity')
+        axs[0].plot(t_dmp, max_acc, '--', label='Max velocity')
         axs[0].set_xlabel('t (s)')
         axs[0].set_ylabel(y_label[0])
 
-        if plot_demo: axs[1].plot(t, demo[:, 1], label='Demonstration')
-        axs[1].plot(t_dmp, dmp[:, 1], label='DMP')
+        axs[1].plot(t_dmp, dmp[:, 1], label='Constrained DMP')
+        if plot_demo: axs[1].plot(t, demo[:, 1], '--', label='Unconstrained DMP')
+        axs[1].plot(t_dmp, min_acc, '--', label='Min velocity')
+        axs[1].plot(t_dmp, max_acc, '--', label='Max velocity')
         axs[1].set_xlabel('t (s)')
         axs[1].set_ylabel(y_label[1])
 
-        if plot_demo: axs[2].plot(t, demo[:, 2], label='Demonstration')
-        axs[2].plot(t_dmp, dmp[:, 2], label='DMP')
+        axs[2].plot(t_dmp, dmp[:, 2], label='Constrained DMP')
+        if plot_demo: axs[2].plot(t, demo[:, 2], '--', label='Unconstrained DMP')
+        axs[2].plot(t_dmp, min_acc, '--', label='Min velocity')
+        axs[2].plot(t_dmp, max_acc, '--', label='Max velocity')
         axs[2].set_xlabel('t (s)')
         axs[2].set_ylabel(y_label[2])
         axs[2].legend()
         fig1.suptitle(title)
+
+        plt.show()
+
+    def plot3DDMP(self, demo_p, dmp_p, plot_demo=True):
+        # 3D plot the DMP against the original demonstration
+        fig2 = plt.figure(2)
+        ax = plt.axes(projection='3d')
+        ax.scatter(dmp_p[0, 0], dmp_p[0, 1], dmp_p[0, 2], color="green")
+        ax.scatter(dmp_p[-1, 0], dmp_p[-1, 1], dmp_p[-1, 2], color="red")
+        ax.plot3D(dmp_p[:, 0], dmp_p[:, 1], dmp_p[:, 2], label='Unconstrained DMP')
+        if plot_demo: ax.plot3D(demo_p[:, 0], demo_p[:, 1], demo_p[:, 2], label='Constrained DMP')
+        ax.legend()
+        ax.set_xlabel('X[m]')
+        ax.set_ylabel('Y[m]')
+        ax.set_zlabel('Z[m]')
 
         plt.show()
